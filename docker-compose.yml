@@ -1,0 +1,61 @@
+version: '3.8'
+
+services:
+  frontend:
+    build: 
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=development
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    networks:
+      - cognitive_net
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql://user:password@db:5432/cognitive_os
+    volumes:
+      - ./backend:/app
+    depends_on:
+      - db
+      - chromadb
+    networks:
+      - cognitive_net
+
+  db:
+    image: postgres:15
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: cognitive_os
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - cognitive_net
+
+  chromadb:
+    image: chromadb/chroma:latest
+    ports:
+      - "8001:8000"
+    volumes:
+      - chroma_data:/chroma/chroma
+    networks:
+      - cognitive_net
+
+volumes:
+  postgres_data:
+  chroma_data:
+
+networks:
+  cognitive_net:
