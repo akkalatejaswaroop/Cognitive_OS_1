@@ -12,7 +12,7 @@ In your Vercel Project Settings, add the following environment variable:
 
 | Key | Value | Description |
 | :--- | :--- | :--- |
-| `NEXT_PUBLIC_API_URL` | `https://your-deployed-backend.com` | The base URL of your deployed FastAPI backend. |
+| `NEXT_PUBLIC_API_ENDPOINT` | `https://your-deployed-backend.com` | The base URL of your deployed FastAPI backend. |
 
 > [!NOTE]
 > If left unset, the frontend will default to `http://localhost:8000` for local development.

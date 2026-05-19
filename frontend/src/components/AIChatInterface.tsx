@@ -37,7 +37,7 @@ export function AIChatInterface() {
     });
 
     try {
-      const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+      const apiBaseUrl = process.env.NEXT_PUBLIC_API_ENDPOINT || "http://localhost:8000";
       
       // Call backend to execute the multi-agent task
       const res = await apiClient("/api/v1/agent/execute", {

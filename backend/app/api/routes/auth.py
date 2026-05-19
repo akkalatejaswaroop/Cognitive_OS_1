@@ -59,7 +59,7 @@ def google_auth(response: Response, user_in: GoogleAuthIn, db: Session = Depends
         value=f"Bearer {access_token}",
         httponly=True,
         secure=is_prod,
-        samesite="strict" if is_prod else "lax",
+        samesite="none" if is_prod else "lax",
         max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60
     )
     response.set_cookie(
@@ -67,7 +67,7 @@ def google_auth(response: Response, user_in: GoogleAuthIn, db: Session = Depends
         value=refresh_token,
         httponly=True,
         secure=is_prod,
-        samesite="strict" if is_prod else "lax",
+        samesite="none" if is_prod else "lax",
         max_age=7 * 24 * 60 * 60
     )
 
@@ -120,7 +120,7 @@ def login(response: Response, user_in: UserLogin, db: Session = Depends(get_db))
         value=f"Bearer {access_token}",
         httponly=True,
         secure=is_prod,
-        samesite="strict" if is_prod else "lax",
+        samesite="none" if is_prod else "lax",
         max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60
     )
     response.set_cookie(
@@ -128,7 +128,7 @@ def login(response: Response, user_in: UserLogin, db: Session = Depends(get_db))
         value=refresh_token,
         httponly=True,
         secure=is_prod,
-        samesite="strict" if is_prod else "lax",
+        samesite="none" if is_prod else "lax",
         max_age=7 * 24 * 60 * 60
     )
 
@@ -228,7 +228,7 @@ def refresh(request: Request, response: Response, db: Session = Depends(get_db))
         value=f"Bearer {new_access_token}",
         httponly=True,
         secure=is_prod,
-        samesite="strict" if is_prod else "lax",
+        samesite="none" if is_prod else "lax",
         max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60
     )
     

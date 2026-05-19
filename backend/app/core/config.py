@@ -19,7 +19,7 @@ class Settings(BaseSettings):
     DATABASE_URL: str = "postgresql://user:password@localhost:5432/cognitive_os"
 
     # ChromaDB (vector store)
-    CHROMA_HOST: str = "localhost"
+    VECTORDB_HOST: str = "localhost"
     CHROMA_PORT: int = 8001
 
     # ------------------------------------------------------------------ #

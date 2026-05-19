@@ -33,7 +33,7 @@ try:
     from chromadb.config import Settings as ChromaSettings
 
     chroma_client = chromadb.HttpClient(
-        host=settings.CHROMA_HOST,
+        host=settings.VECTORDB_HOST,
         port=settings.CHROMA_PORT,
         settings=ChromaSettings(anonymized_telemetry=False),
     )

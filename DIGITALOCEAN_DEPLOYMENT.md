@@ -50,6 +50,6 @@ Add the exact variables you have in your local backend `.env`:
 
 1. DigitalOcean will take a few minutes to build your Docker image and deploy it.
 2. Once complete, it will give you a **Live URL** (e.g., `https://cognitive-backend-xyz.ondigitalocean.app`).
-3. Take that URL and put it into your **Vercel** Environment Variables as `NEXT_PUBLIC_API_URL`.
+3. Take that URL and put it into your **Vercel** Environment Variables as `NEXT_PUBLIC_API_ENDPOINT`.
 
 **You are now fully live!** Your Next.js frontend is served at blazing speeds on Vercel, and your Python multi-agent backend is running securely on a DigitalOcean container!
