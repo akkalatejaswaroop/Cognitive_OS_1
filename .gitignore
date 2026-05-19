@@ -1,0 +1,43 @@
+# ── Python ─────────────────────────────────────────────────────────────────
+venv/
+.venv/
+ENV/
+env/
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyd
+.Python
+*.log
+logs/
+
+# ── Node/Web ───────────────────────────────────────────────────────────────
+node_modules/
+.next/
+out/
+build/
+dist/
+.vercel
+
+# ── Environment & Secrets ──────────────────────────────────────────────────
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+*.env
+
+# ── Databases & Vector Stores ──────────────────────────────────────────────
+chroma_data/
+.chroma/
+
+# ── OS & IDEs ──────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?

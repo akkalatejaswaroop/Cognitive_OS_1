@@ -1,5 +1,8 @@
 import asyncio
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Depends, status
+from app.api.deps import get_user_from_token
+from app.core.database import get_db
+from sqlalchemy.orm import Session
 from app.orchestration.bus import event_bus
 import logging
 
@@ -40,12 +43,31 @@ async def handle_task_status(payload: dict):
     task_id = payload.get("task_id")
     if task_id:
         await manager.send_message(task_id, payload)
+    
+    # Also forward subtask status events to the parent WebSocket connection
+    parent_id = payload.get("parent_id")
+    if parent_id:
+        await manager.send_message(parent_id, payload)
 
 # Subscribe to global task status events
 event_bus.subscribe("task.global_status", handle_task_status)
 
 @router.websocket("/{task_id}")
-async def websocket_endpoint(websocket: WebSocket, task_id: str):
+async def websocket_endpoint(websocket: WebSocket, task_id: str, db: Session = Depends(get_db)):
+    token = websocket.cookies.get("access_token")
+    if token and token.startswith("Bearer "):
+        token = token[7:]
+    
+    try:
+        if not token:
+            raise Exception("No token")
+        get_user_from_token(db, token)
+    except Exception:
+        # Close connection if token is invalid or missing
+        await websocket.accept() # Must accept before closing with a code
+        await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+        return
+
     await manager.connect(websocket, task_id)
     try:
         while True:
