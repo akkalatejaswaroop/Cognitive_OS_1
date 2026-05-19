@@ -18,14 +18,14 @@ interface ChatState {
 }
 
 const initialAgents: AgentStatus[] = [
-  { id: "supervisor", name: "Supervisor", status: "idle", task: "Awaiting task delegation", color: "text-purple-400" },
-  { id: "coder-agent", name: "Coder-Agent", status: "idle", task: "Waiting for supervisor", color: "text-blue-400" },
-  { id: "research-agent", name: "Research-Agent", status: "idle", task: "Waiting for supervisor", color: "text-emerald-400" },
+  { id: "coordinator", name: "Coordinator", status: "idle", task: "Awaiting task assignment", color: "text-foreground" },
+  { id: "coder-agent", name: "Coding Assistant", status: "idle", task: "Waiting for Coordinator", color: "text-foreground" },
+  { id: "research-agent", name: "Research Assistant", status: "idle", task: "Waiting for Coordinator", color: "text-foreground" },
 ];
 
 export const useChatStore = create<ChatState>((set) => ({
   messages: [
-    { id: 'init', role: 'system', content: 'Cognitive OS Initialized. Waiting for commands...' }
+    { id: 'init', role: 'system', content: 'System initialized. Ready.' }
   ],
   agents: initialAgents,
   addMessage: (msg) => set((state) => ({ messages: [...state.messages, msg] })),

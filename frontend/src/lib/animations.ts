@@ -83,7 +83,7 @@ export const cardHover = {
   whileTap: {
     scale: 0.995,
   },
-};
+} as const;
 
 /**
  * pulseSlow

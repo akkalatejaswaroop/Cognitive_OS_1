@@ -18,13 +18,13 @@ export interface DashboardCardProps {
 
 // Tailwind-safe static classes per color
 const colorMap = {
-  blue:    { icon: "bg-blue-500/10 border-blue-500/20 text-blue-500",   glow: "bg-blue-500/8 group-hover:bg-blue-500/15" },
-  purple:  { icon: "bg-purple-500/10 border-purple-500/20 text-purple-400", glow: "bg-purple-500/8 group-hover:bg-purple-500/15" },
-  emerald: { icon: "bg-emerald-500/10 border-emerald-500/20 text-emerald-400", glow: "bg-emerald-500/8 group-hover:bg-emerald-500/15" },
-  amber:   { icon: "bg-amber-500/10 border-amber-500/20 text-amber-400", glow: "bg-amber-500/8 group-hover:bg-amber-500/15" },
-  rose:    { icon: "bg-rose-500/10 border-rose-500/20 text-rose-400",   glow: "bg-rose-500/8 group-hover:bg-rose-500/15" },
-  cyan:    { icon: "bg-cyan-500/10 border-cyan-500/20 text-cyan-400",   glow: "bg-cyan-500/8 group-hover:bg-cyan-500/15" },
-  gray:    { icon: "bg-foreground/5 border-border text-foreground/60",  glow: "bg-foreground/3 group-hover:bg-foreground/8" },
+  blue:    { icon: "bg-primary/10 border-primary/20 text-primary",   glow: "bg-primary/[0.04] group-hover:bg-primary/[0.08]" },
+  purple:  { icon: "bg-primary/10 border-primary/20 text-primary",   glow: "bg-primary/[0.04] group-hover:bg-primary/[0.08]" },
+  emerald: { icon: "bg-foreground/5 border-border text-muted-foreground", glow: "bg-foreground/[0.02] group-hover:bg-foreground/[0.04]" },
+  amber:   { icon: "bg-primary/10 border-primary/20 text-primary",   glow: "bg-primary/[0.04] group-hover:bg-primary/[0.08]" },
+  rose:    { icon: "bg-primary/10 border-primary/20 text-primary",   glow: "bg-primary/[0.04] group-hover:bg-primary/[0.08]" },
+  cyan:    { icon: "bg-primary/10 border-primary/20 text-primary",   glow: "bg-primary/[0.04] group-hover:bg-primary/[0.08]" },
+  gray:    { icon: "bg-foreground/5 border-border text-foreground/60",  glow: "bg-foreground/[0.02] group-hover:bg-foreground/[0.05]" },
 };
 
 export function DashboardCard({

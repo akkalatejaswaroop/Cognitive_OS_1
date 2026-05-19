@@ -65,6 +65,8 @@ app = FastAPI(
 origins = [
     "http://localhost:3000",
     "http://127.0.0.1:3000",
+    "http://localhost:3001",
+    "http://127.0.0.1:3001",
 ]
 if getattr(settings, "ALLOWED_ORIGINS", ""):
     extra_origins = [orig.strip() for orig in settings.ALLOWED_ORIGINS.split(",") if orig.strip()]

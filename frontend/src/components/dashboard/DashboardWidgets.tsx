@@ -17,23 +17,23 @@ import { DashboardCard } from "@/components/DashboardCard";
 export function CognitiveSummaryWidget() {
   return (
     <DashboardCard
-      title="Cognitive Summary"
+      title="Workspace Overview"
       icon={<BrainCircuit className="w-5 h-5" />}
       iconColor="blue"
     >
       <div className="space-y-4 flex flex-col justify-between h-full">
         <div>
           <div className="text-3xl font-extralight text-foreground mb-1">High</div>
-          <div className="text-xs text-muted-foreground">Overall System Efficiency</div>
+          <div className="text-xs text-muted-foreground">Workspace Efficiency</div>
         </div>
         <div className="grid grid-cols-2 gap-4 pt-4 border-t border-border mt-auto">
           <div>
             <div className="text-lg font-semibold text-foreground/90">2.4s</div>
-            <div className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground/80">Avg Response</div>
+            <div className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground/80">Avg Response Time</div>
           </div>
           <div>
             <div className="text-lg font-semibold text-foreground/90">842</div>
-            <div className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground/80">Ops Today</div>
+            <div className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground/80">Actions Completed</div>
           </div>
         </div>
       </div>
@@ -46,13 +46,13 @@ export function CognitiveSummaryWidget() {
 ────────────────────────────────────────────────────────────── */
 export function AIRecommendationsWidget() {
   const recommendations = [
-    { id: 1, text: "Increase agent context window for task #402." },
-    { id: 2, text: "Redundant memories detected. Run garbage collection?" },
+    { id: 1, text: "Expand workspace history for task #402." },
+    { id: 2, text: "Duplicate notes detected. Clean up workspace memory?" },
   ];
 
   return (
     <DashboardCard
-      title="AI Insights"
+      title="Workspace Insights"
       icon={<Sparkles className="w-5 h-5" />}
       iconColor="purple"
     >
@@ -60,7 +60,7 @@ export function AIRecommendationsWidget() {
         {recommendations.map((rec) => (
           <div
             key={rec.id}
-            className="p-3 bg-muted/40 hover:bg-muted/80 rounded-lg border border-border hover:border-purple-500/30 transition-colors cursor-pointer group/item"
+            className="p-3 bg-muted/40 hover:bg-muted/80 rounded-lg border border-border hover:border-primary/25 transition-colors cursor-pointer group/item"
           >
             <p className="text-xs text-foreground/80 leading-relaxed group-hover/item:text-foreground transition-colors">
               {rec.text}
@@ -89,7 +89,7 @@ export function ProductivityInsightsWidget() {
         {dataPoints.map((val, i) => (
           <div
             key={i}
-            className="flex-1 bg-muted hover:bg-emerald-500/20 transition-all rounded-t-sm group/bar relative"
+            className="flex-1 bg-muted hover:bg-primary/20 transition-all rounded-t-sm group/bar relative"
             style={{ height: `${val}%` }}
           >
             <div className="absolute -top-6 left-1/2 -translate-x-1/2 text-[10px] font-mono text-muted-foreground opacity-0 group-hover/bar:opacity-100 transition-opacity whitespace-nowrap bg-card border border-border px-1 rounded shadow-sm z-10">
@@ -107,16 +107,16 @@ export function ProductivityInsightsWidget() {
 ────────────────────────────────────────────────────────────── */
 export function ActiveTasksWidget() {
   const activeTasks = [
-    { id: 1, title: "Optimize Neural Weights", status: "In Progress", progress: 65 },
-    { id: 2, title: "Data Ingestion Pipeline", status: "Queued", progress: 0 },
-    { id: 3, title: "Memory Compaction", status: "Completed", progress: 100 },
+    { id: 1, title: "Optimize system settings", status: "In Progress", progress: 65 },
+    { id: 2, title: "Import document backlog", status: "Queued", progress: 0 },
+    { id: 3, title: "Clean up storage", status: "Completed", progress: 100 },
   ];
 
   return (
     <DashboardCard
-      title="Active Automations"
+      title="Active Tasks"
       icon={<CheckCircle2 className="w-5 h-5" />}
-      iconColor="cyan"
+      iconColor="rose"
       action={
         <button className="text-xs text-primary hover:text-primary/80 flex items-center gap-1 transition-colors font-medium">
           View All <ArrowRight className="w-3 h-3" />
@@ -132,9 +132,7 @@ export function ActiveTasksWidget() {
             </div>
             <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
               <div
-                className={`h-full rounded-full transition-all duration-1000 ${
-                  task.progress === 100 ? "bg-emerald-500" : "bg-primary"
-                }`}
+                className="h-full rounded-full transition-all duration-1000 bg-primary"
                 style={{ width: `${task.progress}%` }}
               />
             </div>
@@ -152,17 +150,17 @@ export function RecentMemoriesWidget() {
   const recentMemories = [
     { id: 1, title: "Project Alpha Architecture", type: "Document", time: "2h ago" },
     { id: 2, title: "Client Feedback Meeting", type: "Transcript", time: "5h ago" },
-    { id: 3, title: "API Keys Updated", type: "System", time: "1d ago" },
+    { id: 3, title: "Workspace settings updated", type: "System", time: "1d ago" },
   ];
 
   return (
     <DashboardCard
-      title="Recent Memories"
+      title="Recent Notes"
       icon={<Database className="w-5 h-5" />}
-      iconColor="cyan"
+      iconColor="blue"
       action={
         <button className="text-xs text-primary hover:text-primary/80 flex items-center gap-1 transition-colors font-medium">
-          Explore Vault <ArrowRight className="w-3 h-3" />
+          Browse Notes <ArrowRight className="w-3 h-3" />
         </button>
       }
     >
@@ -198,7 +196,7 @@ export function QuickThoughtCaptureWidget() {
       </div>
       <input
         type="text"
-        placeholder="Quick Capture memory/task…"
+        placeholder="Quickly note a task or observation…"
         className="flex-1 bg-transparent border-none focus:outline-none text-xs text-foreground px-2.5 py-2.5 placeholder:text-muted-foreground/50 min-w-0"
       />
       <button className="px-3 py-1.5 mr-1 bg-primary text-primary-foreground hover:bg-primary/90 text-[10px] font-semibold uppercase tracking-wider rounded-lg transition-colors shrink-0">

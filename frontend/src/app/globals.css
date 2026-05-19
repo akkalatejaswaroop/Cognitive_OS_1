@@ -36,27 +36,15 @@
   --color-sidebar-accent-foreground: hsl(var(--sidebar-accent-foreground));
   --color-sidebar-border: hsl(var(--sidebar-border));
   --color-sidebar-ring: hsl(var(--sidebar-ring));
-
-  /* ── Chart palette ── */
-  --color-chart-1: hsl(var(--chart-1));
-  --color-chart-2: hsl(var(--chart-2));
-  --color-chart-3: hsl(var(--chart-3));
-  --color-chart-4: hsl(var(--chart-4));
-  --color-chart-5: hsl(var(--chart-5));
-
-  /* ── Cognitive OS brand palette (static) ── */
-  --color-electric-blue: #3b82f6;
-  --color-electric-blue-light: #60a5fa;
-  --color-electric-blue-dark: #2563eb;
-  --color-vivid-purple: #8b5cf6;
-  --color-vivid-purple-light: #a78bfa;
-  --color-vivid-purple-dark: #7c3aed;
-  --color-neon-cyan: #06b6d4;
-  --color-neon-cyan-light: #22d3ee;
-  --color-neon-cyan-dark: #0891b2;
-  --color-deep-dark: #020408;
-  --color-success: #10b981;
-  --color-warning: #f59e0b;
+  --color-brand-primary: hsl(var(--primary));
+  --color-brand-ink: hsl(var(--foreground));
+  --color-brand-surface: hsl(var(--card));
+  --color-brand-muted: hsl(var(--muted-foreground));
+  --color-accent-ember: hsl(var(--foreground));
+  --color-accent-sage: hsl(var(--muted-foreground));
+  --color-accent-gold: hsl(var(--foreground));
+  --color-success: hsl(var(--foreground));
+  --color-warning: hsl(var(--muted-foreground));
 
   /* ── Border radius ── */
   --radius-sm: 0.25rem;
@@ -66,122 +54,126 @@
   --radius-2xl: 1.5rem;
 
   /* ── Custom animations ── */
-  --animate-pulse-slow: pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  --animate-pulse-slow: none;
   --animate-shimmer: shimmer 2.4s infinite;
   --animate-float: float 6s ease-in-out infinite;
-  --animate-glow-pulse: glow-pulse 2s ease-in-out infinite;
+  --animate-glow-pulse: none;
   --animate-scan-line: scan-line 4s linear infinite;
   --animate-data-stream: data-stream 20s linear infinite;
-  --animate-grid-pulse: grid-pulse 3s ease-in-out infinite;
+  --animate-grid-pulse: none;
+
+  /* ── Typography paired system ── */
+  --font-sans: var(--font-instrument), "Switzer", sans-serif;
+  --font-display: var(--font-playfair), "Fraunces", serif;
 }
 
 /* ═══════════════════════════════════════════════════════════════
    Light Theme  (default :root)
-   Clean, bright, professional — with AI-blue accents
+   Warm white & black editorial luxury brand styling
 ═══════════════════════════════════════════════════════════════ */
 :root {
   /* ── Core ── */
-  --background: 210 20% 98%;
-  --foreground: 224 71% 8%;
-  --card: 0 0% 100%;
-  --card-foreground: 224 71% 8%;
-  --popover: 0 0% 100%;
-  --popover-foreground: 224 71% 8%;
-  --primary: 221 83% 53%;              /* Electric Blue */
-  --primary-foreground: 210 40% 98%;
-  --secondary: 262 83% 58%;            /* Vivid Purple */
-  --secondary-foreground: 210 40% 98%;
-  --muted: 210 40% 96%;
-  --muted-foreground: 215 16% 47%;
-  --accent: 189 95% 43%;               /* Neon Cyan */
-  --accent-foreground: 210 40% 98%;
+  --background: 36 25% 97%;            /* #FAF8F5 */
+  --foreground: 24 10% 10%;            /* #1C1917 */
+  --card: 36 25% 97%;                  /* #FAF8F5 */
+  --card-foreground: 24 10% 10%;
+  --popover: 36 25% 97%;
+  --popover-foreground: 24 10% 10%;
+  --primary: 24 10% 10%;               /* #1C1917 - rich near-black */
+  --primary-foreground: 36 25% 97%;
+  --secondary: 25 5% 44%;              /* #78716C - warm gray */
+  --secondary-foreground: 36 25% 97%;
+  --muted: 36 10% 92%;
+  --muted-foreground: 25 5% 44%;        /* #78716C - warm gray */
+  --accent: 24 10% 10%;                /* #1C1917 - rich near-black */
+  --accent-foreground: 36 25% 97%;
   --destructive: 0 84% 60%;
-  --destructive-foreground: 210 40% 98%;
-  --border: 214 32% 91%;
-  --input: 214 32% 91%;
-  --ring: 221 83% 53%;
+  --destructive-foreground: 36 25% 97%;
+  --border: 24 10% 88%;
+  --input: 24 10% 88%;
+  --ring: 24 10% 10%;
   --radius: 0.75rem;
 
   /* ── Sidebar ── */
-  --sidebar-background: 220 20% 97%;
-  --sidebar-foreground: 224 71% 8%;
-  --sidebar-primary: 221 83% 53%;
-  --sidebar-primary-foreground: 210 40% 98%;
-  --sidebar-accent: 210 40% 94%;
-  --sidebar-accent-foreground: 224 71% 8%;
-  --sidebar-border: 214 32% 91%;
-  --sidebar-ring: 221 83% 53%;
+  --sidebar-background: 36 20% 95%;
+  --sidebar-foreground: 24 10% 10%;
+  --sidebar-primary: 24 10% 10%;
+  --sidebar-primary-foreground: 36 25% 97%;
+  --sidebar-accent: 36 10% 90%;
+  --sidebar-accent-foreground: 24 10% 10%;
+  --sidebar-border: 24 10% 88%;
+  --sidebar-ring: 24 10% 10%;
 
   /* ── Chart palette ── */
-  --chart-1: 221 83% 53%;
-  --chart-2: 262 83% 58%;
-  --chart-3: 189 95% 43%;
-  --chart-4: 142 76% 36%;
-  --chart-5: 38 92% 50%;
+  --chart-1: 24 10% 10%;
+  --chart-2: 25 5% 44%;
+  --chart-3: 24 10% 25%;
+  --chart-4: 25 5% 60%;
+  --chart-5: 25 5% 80%;
 
   /* ── Glassmorphism & FX ── */
-  --bg-gradient: radial-gradient(ellipse at top, #dbeafe 0%, #f8fafc 50%, #e2e8f0 100%);
-  --glass-bg: rgba(255, 255, 255, 0.7);
-  --glass-border: rgba(0, 0, 0, 0.08);
-  --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.06);
-  --panel-bg: rgba(255, 255, 255, 0.55);
-  --glow-primary: rgba(59, 130, 246, 0.3);
-  --glow-secondary: rgba(139, 92, 246, 0.3);
-  --glow-accent: rgba(6, 182, 212, 0.3);
+  --bg-gradient: radial-gradient(ellipse at top, #FAF8F5 0%, #F5EFEB 50%, #E2D8C5 100%);
+  --glass-bg: rgba(250, 248, 245, 0.85);
+  --glass-border: rgba(28, 25, 23, 0.15);
+  --glass-shadow: 0 8px 32px rgba(28, 25, 23, 0.04);
+  --panel-bg: rgba(250, 248, 245, 0.75);
+  --glow-primary: rgba(28, 25, 23, 0.05);
+  --glow-secondary: rgba(28, 25, 23, 0.05);
+  --glow-accent: rgba(28, 25, 23, 0.05);
 }
 
 /* ═══════════════════════════════════════════════════════════════
    Dark Theme  (.dark class applied by next-themes)
-   Deep space aesthetic — glows & neon highlights
+   Bespoke, deep black and ambient warm off-white styling
 ═══════════════════════════════════════════════════════════════ */
 .dark {
   /* ── Core ── */
-  --background: 224 71% 4%;
-  --foreground: 210 40% 98%;
-  --card: 222 47% 6%;
-  --card-foreground: 210 40% 98%;
-  --popover: 222 47% 7%;
-  --popover-foreground: 210 40% 98%;
-  --primary: 217 91% 60%;              /* Electric Blue */
-  --primary-foreground: 222 47% 11%;
-  --secondary: 262 83% 58%;            /* Vivid Purple */
-  --secondary-foreground: 210 40% 98%;
-  --muted: 217 33% 17%;
-  --muted-foreground: 215 20% 65%;
-  --accent: 189 95% 43%;               /* Neon Cyan */
-  --accent-foreground: 210 40% 98%;
+  --background: 30 10% 7%;             /* #141210 */
+  --foreground: 38 30% 94%;            /* #F5F0E8 */
+  --card: 45 20% 13%;                  /* #252219 */
+  --card-foreground: 38 30% 94%;
+  --popover: 30 10% 11%;               /* #1E1B18 */
+  --popover-foreground: 38 30% 94%;
+  --primary: 38 30% 94%;               /* #F5F0E8 - warm off-white */
+  --primary-foreground: 24 10% 10%;
+  --secondary: 46 16% 56%;             /* #A09880 - warm mid */
+  --secondary-foreground: 30 10% 7%;
+  --muted: 30 10% 15%;
+  --muted-foreground: 46 16% 56%;      /* #A09880 - warm mid */
+  --accent: 38 30% 94%;                /* #F5F0E8 - warm off-white */
+  --accent-foreground: 30 10% 7%;
   --destructive: 0 63% 31%;
-  --destructive-foreground: 210 40% 98%;
-  --border: 217 33% 17%;
-  --input: 217 33% 17%;
-  --ring: 224 76% 48%;
+  --destructive-foreground: 38 30% 94%;
+  --border: 30 10% 16%;
+  --input: 30 10% 16%;
+  --ring: 38 30% 94%;
 
   /* ── Sidebar ── */
-  --sidebar-background: 224 71% 4%;
-  --sidebar-foreground: 210 40% 98%;
-  --sidebar-primary: 217 91% 60%;
-  --sidebar-primary-foreground: 222 47% 11%;
-  --sidebar-accent: 217 33% 12%;
-  --sidebar-accent-foreground: 210 40% 98%;
-  --sidebar-border: 217 33% 17%;
-  --sidebar-ring: 224 76% 48%;
+  --sidebar-background: 30 10% 7%;
+  --sidebar-foreground: 38 30% 94%;
+  --sidebar-primary: 38 30% 94%;
+  --sidebar-primary-foreground: 24 10% 10%;
+  --sidebar-accent: 30 10% 15%;
+  --sidebar-accent-foreground: 38 30% 94%;
+  --sidebar-border: 30 10% 16%;
+  --sidebar-ring: 38 30% 94%;
 
   /* ── Chart palette ── */
-  --chart-1: 217 91% 60%;
-  --chart-2: 262 83% 58%;
-  --chart-3: 189 95% 43%;
-  --chart-4: 142 71% 45%;
-  --chart-5: 38 92% 50%;
+  --chart-1: 38 30% 94%;
+  --chart-2: 46 16% 56%;
+  --chart-3: 38 30% 75%;
+  --chart-4: 46 16% 40%;
+  --chart-5: 38 30% 25%;
 
   /* ── Glassmorphism & FX ── */
-  --bg-gradient: radial-gradient(ellipse at top, #0f172a 0%, #060b14 50%, #020408 100%);
-  --glass-bg: rgba(2, 6, 23, 0.6);
-  --glass-border: rgba(255, 255, 255, 0.07);
-  --glass-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
-  --panel-bg: rgba(0, 0, 0, 0.4);
-  --glow-primary: rgba(59, 130, 246, 0.5);
-  --glow-secondary: rgba(139, 92, 246, 0.5);
-  --glow-accent: rgba(6, 182, 212, 0.5);
+  --bg-gradient: radial-gradient(ellipse at top, #1E1B18 0%, #141210 60%, #080706 100%);
+  --glass-bg: rgba(20, 18, 16, 0.85);
+  --glass-border: rgba(255, 255, 255, 0.1);
+  --glass-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.6);
+  --panel-bg: rgba(20, 18, 16, 0.75);
+  --glow-primary: rgba(245, 240, 232, 0.05);
+  --glow-secondary: rgba(245, 240, 232, 0.05);
+  --glow-accent: rgba(245, 240, 232, 0.05);
 }
 
 /* ═══════════════════════════════════════════════════════════════
@@ -197,13 +189,22 @@
 body {
   background-color: hsl(var(--background));
   color: hsl(var(--foreground));
-  background-image: var(--bg-gradient);
-  background-attachment: fixed;
   min-height: 100dvh;
   font-feature-settings: "rlig" 1, "calt" 1;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   transition: background-color 0.3s ease, color 0.3s ease;
+  position: relative;
+}
+
+/* Hardware accelerated fixed backdrop to prevent scrolling lag or locks on mobile and desktop viewports */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background-image: var(--bg-gradient);
+  z-index: -10;
+  pointer-events: none;
 }
 
 /* Prevent FOUC while next-themes resolves */
@@ -396,9 +397,8 @@ html[data-theme-loading] body {
 .bg-grid {
   background-size: 40px 40px;
   background-image:
-    linear-gradient(to right, hsl(var(--foreground) / 0.03) 1px, transparent 1px),
-    linear-gradient(to bottom, hsl(var(--foreground) / 0.03) 1px, transparent 1px);
-  animation: grid-pulse 3s ease-in-out infinite;
+    linear-gradient(to right, hsl(var(--foreground) / 0.035) 1px, transparent 1px),
+    linear-gradient(to bottom, hsl(var(--foreground) / 0.035) 1px, transparent 1px);
 }
 
 /* ═══════════════════════════════════════════════════════════════

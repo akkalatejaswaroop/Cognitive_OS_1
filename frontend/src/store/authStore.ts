@@ -5,6 +5,9 @@ interface User {
   id: string;
   email: string;
   role: string;
+  name?: string;
+  avatar_url?: string;
+  preferences?: Record<string, any>;
 }
 
 interface AuthState {

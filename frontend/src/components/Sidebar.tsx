@@ -22,10 +22,10 @@ import { useEffect } from "react";
 
 const navItems = [
   { icon: LayoutDashboard, label: "Dashboard",        href: "/dashboard" },
-  { icon: Database,        label: "Memory Vault",     href: "/dashboard/memory" },
-  { icon: Bot,             label: "AI Agents",        href: "/dashboard/agents" },
+  { icon: Database,        label: "Database",         href: "/dashboard/memory" },
+  { icon: Bot,             label: "Assistants",       href: "/dashboard/agents" },
   { icon: Workflow,        label: "Automations",      href: "/dashboard/automations" },
-  { icon: Lightbulb,       label: "Knowledge Capture",href: "/dashboard/knowledge" },
+  { icon: Lightbulb,       label: "Notes",            href: "/dashboard/knowledge" },
   { icon: BarChart3,       label: "Analytics",        href: "/dashboard/analytics" },
   { icon: Settings,        label: "Settings",         href: "/dashboard/settings" },
 ];
@@ -43,7 +43,7 @@ export function Sidebar() {
       {/* Logo + Toggle Row */}
       <div className="flex items-center justify-between mb-8 px-1">
         <div className="flex items-center gap-3 overflow-hidden whitespace-nowrap">
-          <div className="w-8 h-8 rounded-lg bg-primary/20 flex-shrink-0 flex items-center justify-center border border-primary/30 shadow-[0_0_10px_rgba(59,130,246,0.15)]">
+          <div className="w-8 h-8 rounded-lg bg-primary/10 flex-shrink-0 flex items-center justify-center border border-primary/25">
             <TerminalSquare className="w-4 h-4 text-primary" />
           </div>
           <AnimatePresence>
@@ -53,7 +53,7 @@ export function Sidebar() {
                 animate={{ opacity: 1, width: "auto" }}
                 exit={{ opacity: 0, width: 0 }}
                 transition={{ duration: 0.2 }}
-                className="font-semibold text-base tracking-wide text-foreground font-sans"
+                className="font-bold text-lg tracking-wide text-foreground font-display italic"
               >
                 Cognitive OS
               </motion.span>
@@ -144,16 +144,16 @@ export function Sidebar() {
           {isOpen ? (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
               <div className="flex justify-between items-center mb-2">
-                <span className="text-xs text-muted-foreground">Core Neural Engine</span>
-                <span className="text-xs font-mono text-primary">98.2%</span>
+                <span className="text-xs text-muted-foreground font-sans">System Load</span>
+                <span className="text-xs font-mono text-primary font-medium">98.2%</span>
               </div>
-              <div className="w-full h-1 bg-muted rounded-full overflow-hidden">
-                <div className="w-[98.2%] h-full bg-primary rounded-full shadow-[0_0_8px_rgba(59,130,246,0.5)]" />
+              <div className="w-full h-1 bg-muted/50 rounded-full overflow-hidden">
+                <div className="w-[98.2%] h-full bg-primary rounded-full" />
               </div>
             </motion.div>
           ) : (
             <div
-              className="w-2 h-2 rounded-full bg-primary animate-pulse"
+              className="w-2 h-2 rounded-full bg-primary glow-dot"
               title="System Load: 98.2%"
             />
           )}

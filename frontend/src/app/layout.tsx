@@ -1,12 +1,19 @@
 import type { Metadata, Viewport } from "next";
-import { Inter } from "next/font/google";
+import { Playfair_Display, Instrument_Sans } from "next/font/google";
 import "./globals.css";
 import { AuthInitializer } from "@/components/AuthInitializer";
 import { ThemeProvider } from "@/components/theme-provider";
 
-const inter = Inter({
+const playfair = Playfair_Display({
   subsets: ["latin"],
-  variable: "--font-inter",
+  variable: "--font-playfair",
+  display: "swap",
+});
+
+const instrument = Instrument_Sans({
+  subsets: ["latin"],
+  variable: "--font-instrument",
+  display: "swap",
 });
 
 export const metadata: Metadata = {
@@ -18,8 +25,8 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = {
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#f8fafc" },
-    { media: "(prefers-color-scheme: dark)", color: "#020408" },
+    { media: "(prefers-color-scheme: light)", color: "#faf8f5" },
+    { media: "(prefers-color-scheme: dark)", color: "#141210" },
   ],
   width: "device-width",
   initialScale: 1,
@@ -34,7 +41,7 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body
-        className={`${inter.variable} font-sans text-foreground bg-background antialiased overflow-hidden transition-theme`}
+        className={`${playfair.variable} ${instrument.variable} font-sans text-foreground bg-background antialiased transition-theme`}
       >
         {/* ThemeProvider defaults (class attr, dark default, system detection, 
             persistent storageKey) are all baked into the component. */}

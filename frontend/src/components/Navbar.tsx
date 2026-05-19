@@ -11,6 +11,10 @@ import { useSidebarStore } from "@/store/useSidebarStore";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { cn } from "@/lib/utils";
 
+import { useAuthStore } from "@/store/authStore";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+
 function useClickOutside(ref: React.RefObject<HTMLElement | null>, handler: () => void) {
   useEffect(() => {
     const listener = (event: MouseEvent | TouchEvent) => {
@@ -34,6 +38,8 @@ const dropdownVariants = {
 
 export function Navbar() {
   const { toggleMobileSidebar } = useSidebarStore();
+  const { user, logout } = useAuthStore();
+  const router = useRouter();
   const [isWorkspaceOpen, setIsWorkspaceOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [activeWorkspace, setActiveWorkspace] = useState("Alpha-1");
@@ -43,6 +49,14 @@ export function Navbar() {
 
   useClickOutside(workspaceRef, () => setIsWorkspaceOpen(false));
   useClickOutside(profileRef, () => setIsProfileOpen(false));
+
+  const handleLogout = async () => {
+    await logout();
+    router.push("/");
+  };
+
+  const displayName = user?.name || user?.email.split("@")[0] || "User";
+  const userInitials = displayName.slice(0, 2).toUpperCase();
 
   const workspaces = ["Alpha-1", "Project Nexus", "Data Sync Beta"];
 
@@ -110,7 +124,7 @@ export function Navbar() {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/60 group-focus-within:text-primary transition-colors" />
           <input
             type="text"
-            placeholder="Search commands, agents, memories…"
+            placeholder="Search..."
             className="w-full bg-muted/40 border border-border rounded-full py-2 pl-10 pr-16 text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-1 focus:ring-primary/50 hover:bg-muted/80 transition-all"
           />
           <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1">
@@ -128,12 +142,12 @@ export function Navbar() {
 
         {/* AI status */}
         <div
-          title="Cognitive Engine: Active"
+          title="Engine Connected"
           className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/10 border border-primary/20 cursor-default"
         >
           <Zap className="w-4 h-4 text-primary" />
-          <span className="text-xs font-medium text-primary">AI Active</span>
-          <div className="w-2 h-2 rounded-full bg-primary animate-pulse shadow-[0_0_8px_rgba(59,130,246,0.8)]" />
+          <span className="text-xs font-medium text-primary">Connected</span>
+          <div className="w-2 h-2 rounded-full bg-primary glow-dot" />
         </div>
 
         {/* Theme toggle */}
@@ -142,7 +156,7 @@ export function Navbar() {
         {/* Notifications */}
         <button className="relative p-2 rounded-full text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">
           <Bell className="w-5 h-5" />
-          <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-primary rounded-full border-2 border-background shadow-[0_0_6px_rgba(59,130,246,0.8)]" />
+          <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-primary rounded-full border-2 border-background glow-dot" />
         </button>
 
         <div className="w-px h-6 bg-border mx-1 hidden sm:block" />
@@ -151,11 +165,19 @@ export function Navbar() {
         <div className="relative" ref={profileRef}>
           <button
             onClick={() => setIsProfileOpen(!isProfileOpen)}
-            className="flex items-center gap-1.5 hover:bg-muted p-1 pr-2 rounded-full transition-colors border border-transparent hover:border-border"
+            className="flex items-center gap-1.5 hover:bg-muted p-1 pr-2 rounded-full transition-colors border border-transparent hover:border-border cursor-pointer"
           >
-            <div className="h-8 w-8 rounded-full bg-gradient-to-tr from-primary to-secondary flex items-center justify-center shadow-lg flex-shrink-0">
-              <User className="w-4 h-4 text-white" />
-            </div>
+            {user?.avatar_url ? (
+              <img
+                src={user.avatar_url}
+                alt={displayName}
+                className="h-8 w-8 rounded-full object-cover border border-primary/20 flex-shrink-0"
+              />
+            ) : (
+              <div className="h-8 w-8 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center flex-shrink-0 text-xs font-bold text-primary font-mono">
+                {userInitials}
+              </div>
+            )}
             <ChevronDown className={cn("w-3.5 h-3.5 text-muted-foreground/60 hidden sm:block transition-transform duration-200", isProfileOpen && "rotate-180")} />
           </button>
 
@@ -169,25 +191,28 @@ export function Navbar() {
                 className="absolute top-full mt-2 right-0 w-64 rounded-xl border border-border glass-panel shadow-2xl py-2 z-50"
               >
                 <div className="px-4 py-3 border-b border-border mb-1">
-                  <p className="text-sm font-semibold text-foreground">Commander Shepard</p>
-                  <p className="text-xs text-muted-foreground/60 truncate">shepard@cognitive-os.io</p>
+                  <p className="text-sm font-semibold text-foreground truncate">{displayName}</p>
+                  <p className="text-xs text-muted-foreground/60 truncate">{user?.email || ""}</p>
                 </div>
 
                 <div className="px-1 space-y-0.5">
-                  <button className="w-full flex items-center gap-3 px-3 py-2 text-sm text-foreground/80 hover:text-foreground hover:bg-muted rounded-md transition-colors">
+                  <Link
+                    href="/dashboard/settings"
+                    onClick={() => setIsProfileOpen(false)}
+                    className="w-full flex items-center gap-3 px-3 py-2 text-sm text-foreground/80 hover:text-foreground hover:bg-muted rounded-md transition-colors"
+                  >
                     <User className="w-4 h-4 text-muted-foreground/60" />
-                    Profile
-                  </button>
-                  <button className="w-full flex items-center gap-3 px-3 py-2 text-sm text-foreground/80 hover:text-foreground hover:bg-muted rounded-md transition-colors">
-                    <Settings className="w-4 h-4 text-muted-foreground/60" />
-                    Preferences
-                  </button>
+                    Profile & Preferences
+                  </Link>
                 </div>
 
                 <div className="border-t border-border mt-1 pt-1 px-1">
-                  <button className="w-full flex items-center gap-3 px-3 py-2 text-sm text-destructive hover:bg-destructive/10 rounded-md transition-colors">
+                  <button
+                    onClick={handleLogout}
+                    className="w-full flex items-center gap-3 px-3 py-2 text-sm text-destructive hover:bg-destructive/10 rounded-md transition-colors cursor-pointer"
+                  >
                     <LogOut className="w-4 h-4" />
-                    Disconnect
+                    Sign Out
                   </button>
                 </div>
               </motion.div>

@@ -13,6 +13,9 @@ class User(Base):
     hashed_password = Column(String(255), nullable=False)
     role = Column(String(50), default="user")
     is_active = Column(Boolean, default=True)
+    name = Column(String(255), nullable=True)
+    avatar_url = Column(String(500), nullable=True)
+    preferences = Column(JSONB, default=dict, nullable=True)
     created_at = Column(DateTime(timezone=True), default=datetime.utcnow)
     updated_at = Column(DateTime(timezone=True), default=datetime.utcnow, onupdate=datetime.utcnow)
 

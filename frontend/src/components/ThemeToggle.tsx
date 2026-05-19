@@ -33,7 +33,7 @@ export function ThemeToggle({ className }: { className?: string }) {
     return (
       <div
         className={cn(
-          "w-9 h-9 rounded-full bg-muted/30 animate-pulse",
+          "w-9 h-9 rounded-full bg-muted/15",
           className
         )}
       />
