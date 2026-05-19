@@ -110,13 +110,13 @@ export function AIChatInterface() {
   };
 
   return (
-    <div className="flex flex-col h-full glass-panel rounded-2xl overflow-hidden border border-white/10">
-      <div className="p-4 border-b border-white/10 bg-white/5 flex items-center gap-3">
-        <Bot className="w-5 h-5 text-blue-400" />
-        <h2 className="font-semibold text-sm">Supervisor Agent</h2>
+    <div className="flex flex-col h-full glass-panel rounded-2xl overflow-hidden border border-border">
+      <div className="p-4 border-b border-border bg-muted/40 flex items-center gap-3">
+        <Bot className="w-5 h-5 text-primary" />
+        <h2 className="font-semibold text-sm text-foreground">Supervisor Agent</h2>
       </div>
       
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+      <div className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar">
         {messages.map((msg) => (
           <motion.div
             initial={{ opacity: 0, y: 10 }}
@@ -125,16 +125,16 @@ export function AIChatInterface() {
             className={`flex gap-3 ${msg.role === "user" ? "flex-row-reverse" : ""}`}
           >
             <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${
-              msg.role === "user" ? "bg-blue-600" : msg.role === "system" ? "bg-purple-600" : "bg-white/10 border border-white/20"
+              msg.role === "user" ? "bg-primary text-primary-foreground" : msg.role === "system" ? "bg-secondary text-secondary-foreground" : "bg-muted border border-border text-foreground"
             }`}>
               {msg.role === "user" ? <User className="w-4 h-4" /> : <Bot className="w-4 h-4" />}
             </div>
             <div className={`p-3 rounded-2xl max-w-[80%] text-sm whitespace-pre-line ${
               msg.role === "user" 
-                ? "bg-blue-600/20 border border-blue-500/30 text-white" 
+                ? "bg-primary/10 border border-primary/20 text-foreground" 
                 : msg.role === "system"
-                ? "bg-purple-500/10 border border-purple-500/20 text-purple-200"
-                : "bg-white/5 border border-white/10 text-white/80"
+                ? "bg-secondary/10 border border-secondary/20 text-foreground"
+                : "bg-card border border-border text-foreground/80"
             }`}>
               {msg.content}
             </div>
@@ -143,7 +143,7 @@ export function AIChatInterface() {
         <div ref={chatEndRef} />
       </div>
 
-      <div className="p-4 bg-black/20 border-t border-white/10">
+      <div className="p-4 bg-muted/20 border-t border-border">
         <div className="flex gap-2 relative">
           <input
             type="text"
@@ -152,12 +152,12 @@ export function AIChatInterface() {
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && handleSend()}
             placeholder={isLoading ? "OS is executing task..." : "Issue command to Cognitive OS..."}
-            className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/50 transition-all placeholder:text-white/30 disabled:opacity-50"
+            className="flex-1 bg-muted/40 border border-border rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/50 transition-all placeholder:text-muted-foreground/50 text-foreground disabled:opacity-50"
           />
           <button 
             onClick={handleSend}
             disabled={isLoading}
-            className="px-4 bg-blue-600 hover:bg-blue-500 text-white rounded-xl flex items-center justify-center transition-colors disabled:bg-white/10 disabled:text-white/30"
+            className="px-4 bg-primary hover:bg-primary/95 text-primary-foreground rounded-xl flex items-center justify-center transition-colors disabled:bg-muted disabled:text-muted-foreground/30"
           >
             {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
           </button>

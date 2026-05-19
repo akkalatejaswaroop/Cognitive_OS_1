@@ -1,5 +1,6 @@
 import { Sidebar } from "@/components/Sidebar";
 import { Navbar } from "@/components/Navbar";
+import { DashboardContentWrapper } from "@/components/DashboardContentWrapper";
 
 export default function DashboardLayout({
   children,
@@ -7,15 +8,23 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   return (
-    <div className="flex h-screen overflow-hidden">
-      <Sidebar />
-      <div className="flex-1 ml-64 flex flex-col h-screen overflow-hidden">
-        <Navbar />
-        <main className="flex-1 overflow-auto p-6 relative">
-          <div className="absolute inset-0 bg-[url('/noise.png')] opacity-[0.03] pointer-events-none mix-blend-overlay" />
-          {children}
-        </main>
+    <div className="flex h-screen overflow-hidden bg-background text-foreground transition-theme">
+      {/* Ambient background gradients */}
+      <div className="fixed inset-0 z-0 pointer-events-none">
+        <div className="absolute top-0 left-1/4 w-[500px] h-[500px] bg-primary/5 dark:bg-primary/8 rounded-full blur-[120px]" />
+        <div className="absolute bottom-0 right-1/4 w-[500px] h-[500px] bg-secondary/5 dark:bg-secondary/8 rounded-full blur-[120px]" />
       </div>
+
+      <Sidebar />
+
+      <DashboardContentWrapper>
+        <Navbar />
+        <main className="flex-1 overflow-auto p-4 sm:p-6 lg:p-8 relative custom-scrollbar">
+          <div className="max-w-[1600px] 2xl:max-w-[1800px] mx-auto h-full relative z-10 w-full">
+            {children}
+          </div>
+        </main>
+      </DashboardContentWrapper>
     </div>
   );
 }
