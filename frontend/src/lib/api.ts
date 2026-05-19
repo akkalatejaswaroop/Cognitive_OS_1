@@ -14,7 +14,7 @@ async function refreshAccessToken() {
 
 export async function apiClient(endpoint: string, options: RequestInit = {}) {
   const url = endpoint.startsWith("http") ? endpoint : `${apiBaseUrl}${endpoint}`;
-  
+
   const defaultOptions: RequestInit = {
     ...options,
     credentials: "include",
