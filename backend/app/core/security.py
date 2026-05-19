@@ -1,21 +1,25 @@
 from datetime import datetime, timedelta
 from typing import Optional, Union, Any
 from jose import jwt
-from passlib.context import CryptContext
+import bcrypt
 from app.core.config import settings
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-
 def verify_password(plain_password: str, hashed_password: str) -> bool:
-    return pwd_context.verify(plain_password, hashed_password)
+    try:
+        return bcrypt.checkpw(plain_password.encode('utf-8'), hashed_password.encode('utf-8'))
+    except Exception:
+        return False
 
 def get_password_hash(password: str) -> str:
-    return pwd_context.hash(password)
+    salt = bcrypt.gensalt()
+    return bcrypt.hashpw(password.encode('utf-8'), salt).decode('utf-8')
 
 def create_token(subject: Union[str, Any], token_type: str = "access") -> str:
     now = datetime.utcnow()
-    expire_minutes = 15 if token_type == "access" else 60 * 24 * 7
-    expire = now + timedelta(minutes=expire_minutes)
+    if token_type == "access":
+        expire = now + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+    else:
+        expire = now + timedelta(days=7)  # Refresh token expires in 7 days
     
     to_encode = {"exp": expire, "sub": str(subject), "type": token_type}
     encoded_jwt = jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)

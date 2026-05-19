@@ -14,7 +14,7 @@ def get_token_from_cookie(request: Request) -> str:
         token = token[7:]
     return token
 
-def get_current_user(db: Session = Depends(get_db), token: str = Depends(get_token_from_cookie)):
+def get_user_from_token(db: Session, token: str) -> User:
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",
@@ -28,10 +28,19 @@ def get_current_user(db: Session = Depends(get_db), token: str = Depends(get_tok
     except JWTError:
         raise credentials_exception
         
-    user = db.query(User).filter(User.id == user_id).first()
+    import uuid
+    try:
+        uuid_user_id = uuid.UUID(user_id)
+    except (ValueError, TypeError):
+        raise credentials_exception
+        
+    user = db.query(User).filter(User.id == uuid_user_id).first()
     if user is None or not user.is_active:
         raise credentials_exception
     return user
+
+def get_current_user(db: Session = Depends(get_db), token: str = Depends(get_token_from_cookie)):
+    return get_user_from_token(db, token)
 
 def require_admin(current_user: User = Depends(get_current_user)):
     if current_user.role != "admin":

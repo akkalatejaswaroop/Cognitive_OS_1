@@ -36,8 +36,12 @@ async def lifespan(app: FastAPI):
         )
 
     from app.agents.supervisor import SupervisorAgent
+    from app.agents.coder import CoderAgent
+    from app.agents.research import ResearchAgent
     app.state.supervisor = SupervisorAgent()  # Keep ref to prevent GC
-    logger.info("Cognitive OS Backend initialised successfully.")
+    app.state.coder = CoderAgent()
+    app.state.research = ResearchAgent()
+    logger.info("Cognitive OS Backend initialised successfully (Supervisor, Coder, Research agents loaded).")
 
     yield
 

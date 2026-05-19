@@ -15,6 +15,14 @@ class EventBus:
         self.subscribers[topic].append(callback)
         logger.info(f"Subscribed to topic: {topic}")
 
+    def unsubscribe(self, topic: str, callback):
+        if topic in self.subscribers:
+            if callback in self.subscribers[topic]:
+                self.subscribers[topic].remove(callback)
+            if not self.subscribers[topic]:
+                del self.subscribers[topic]
+            logger.info(f"Unsubscribed from topic: {topic}")
+
     async def publish(self, topic: str, payload: dict):
         logger.debug(f"Publishing to {topic}: {payload}")
         await self._queue.put({"topic": topic, "payload": payload})

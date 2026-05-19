@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/store/authStore";
+import { apiClient } from "@/lib/api";
 import { Cpu, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { motion } from "framer-motion";
@@ -21,11 +22,8 @@ export default function LoginPage() {
     setError("");
 
     try {
-      const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-      const res = await fetch(`${apiBaseUrl}/api/v1/auth/login`, {
+      const res = await apiClient("/api/v1/auth/login", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
         body: JSON.stringify({ email, password }),
       });
 

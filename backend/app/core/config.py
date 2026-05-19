@@ -7,6 +7,7 @@ from logging.handlers import RotatingFileHandler
 class Settings(BaseSettings):
     PROJECT_NAME: str = "Cognitive OS"
     VERSION: str = "1.0.0"
+    ENVIRONMENT: str = "development"
     API_V1_STR: str = "/api/v1"
 
     # Security
