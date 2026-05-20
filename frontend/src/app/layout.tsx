@@ -32,7 +32,7 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 1,
 };
-import { SupabaseProvider } from "@/components/providers/supabase-provider";
+import { AuthProvider } from "@/contexts/AuthContext";
 
 
 export default function RootLayout({
@@ -48,11 +48,11 @@ export default function RootLayout({
         {/* ThemeProvider defaults (class attr, dark default, system detection, 
             persistent storageKey) are all baked into the component. */}
         <ThemeProvider>
-          <SupabaseProvider>
+          <AuthProvider>
             <AuthInitializer>
               {children}
             </AuthInitializer>
-          </SupabaseProvider>
+          </AuthProvider>
         </ThemeProvider>
       </body>
     </html>

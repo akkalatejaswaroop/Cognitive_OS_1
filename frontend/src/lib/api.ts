@@ -1,5 +1,17 @@
 const apiBaseUrl = process.env.NEXT_PUBLIC_API_ENDPOINT || "http://localhost:8000";
 
+let isRefreshing = false;
+let refreshSubscribers: ((token: string) => void)[] = [];
+
+function subscribeTokenRefresh(cb: (token: string) => void) {
+  refreshSubscribers.push(cb);
+}
+
+function onRefreshed(token: string) {
+  refreshSubscribers.map((cb) => cb(token));
+  refreshSubscribers = [];
+}
+
 async function refreshAccessToken() {
   try {
     const res = await fetch(`${apiBaseUrl}/api/v1/auth/refresh`, {
@@ -26,11 +38,30 @@ export async function apiClient(endpoint: string, options: RequestInit = {}) {
 
   let response = await fetch(url, defaultOptions);
 
-  // If 401, try to refresh token and retry once
+  // If 401 Unauthorized, try to refresh
   if (response.status === 401 && !url.includes("/auth/login") && !url.includes("/auth/refresh")) {
-    const refreshed = await refreshAccessToken();
-    if (refreshed) {
-      response = await fetch(url, defaultOptions);
+    if (!isRefreshing) {
+      isRefreshing = true;
+      const refreshed = await refreshAccessToken();
+      isRefreshing = false;
+      
+      if (refreshed) {
+        onRefreshed("refreshed");
+        // Retry original request
+        return await fetch(url, defaultOptions);
+      } else {
+        // Total session failure - clear client state and redirect
+        if (typeof window !== "undefined" && !window.location.pathname.includes("/login")) {
+           window.location.href = "/login?error=Session expired. Please log in again.";
+        }
+      }
+    } else {
+      // If already refreshing, wait for it to complete
+      return new Promise((resolve) => {
+        subscribeTokenRefresh(() => {
+          resolve(fetch(url, defaultOptions));
+        });
+      });
     }
   }
 

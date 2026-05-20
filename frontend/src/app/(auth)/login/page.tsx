@@ -19,7 +19,7 @@ import {
   Sparkles
 } from "lucide-react"
 import Link from "next/link"
-import { useAuth } from "@/components/providers/supabase-provider"
+import { useAuth } from "@/contexts/AuthContext"
 
 // 1. Validation Schema
 const loginSchema = z.object({

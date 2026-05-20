@@ -98,30 +98,17 @@ def signup(user_in: UserCreate, db: Session = Depends(get_db)):
     db.commit()
     return {"message": "User created successfully"}
 
-@router.post("/login")
-def login(response: Response, user_in: UserLogin, db: Session = Depends(get_db)):
-    user = db.query(User).filter(User.email == user_in.email).first()
-    if not user or not verify_password(user_in.password, user.hashed_password):
-        raise HTTPException(status_code=401, detail="Incorrect email or password")
-    
-    access_token = create_token(subject=user.id, token_type="access")
-    refresh_token = create_token(subject=user.id, token_type="refresh")
-    
-    # Store refresh token / session in Neon Postgres
-    db_session = DBSession(user_id=user.id, expires_at=datetime.utcnow() + timedelta(days=7))
-    db.add(db_session)
-    db.commit()
-
+def set_auth_cookies(response: Response, access_token: str, refresh_token: str):
     is_prod = settings.ENVIRONMENT.lower() == "production"
-
-    # Set HttpOnly Cookies
+    
     response.set_cookie(
         key="access_token",
         value=f"Bearer {access_token}",
         httponly=True,
         secure=is_prod,
         samesite="none" if is_prod else "lax",
-        max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60
+        max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+        path="/"
     )
     response.set_cookie(
         key="refresh_token",
@@ -129,67 +116,33 @@ def login(response: Response, user_in: UserLogin, db: Session = Depends(get_db))
         httponly=True,
         secure=is_prod,
         samesite="none" if is_prod else "lax",
-        max_age=7 * 24 * 60 * 60
+        max_age=settings.REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60,
+        path="/"
     )
+
+@router.post("/login")
+def login(response: Response, user_in: UserLogin, request: Request, db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.email == user_in.email).first()
+    if not user or not verify_password(user_in.password, user.hashed_password):
+        raise HTTPException(status_code=401, detail="Incorrect email or password")
+    
+    access_token = create_token(subject=user.id, token_type="access")
+    refresh_token = create_token(subject=user.id, token_type="refresh")
+    
+    # Track session for multi-device readiness
+    db_session = DBSession(
+        user_id=user.id, 
+        expires_at=datetime.utcnow() + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS),
+        device_info={"user_agent": request.headers.get("user-agent")}
+    )
+    db.add(db_session)
+    db.commit()
+
+    set_auth_cookies(response, access_token, refresh_token)
 
     return {
         "message": "Login successful",
-        "user": {
-            "id": str(user.id),
-            "email": user.email,
-            "role": user.role,
-            "name": user.name,
-            "avatar_url": user.avatar_url,
-            "preferences": user.preferences or {}
-        }
-    }
-
-@router.get("/me")
-def get_me(current_user: User = Depends(get_current_user)):
-    return {
-        "id": str(current_user.id),
-        "email": current_user.email,
-        "role": current_user.role,
-        "name": current_user.name,
-        "avatar_url": current_user.avatar_url,
-        "preferences": current_user.preferences or {}
-    }
-
-class ProfileUpdate(BaseModel):
-    name: str | None = None
-    avatar_url: str | None = None
-    preferences: dict | None = None
-
-@router.patch("/profile")
-def update_profile(
-    profile_in: ProfileUpdate,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
-):
-    if profile_in.name is not None:
-        current_user.name = profile_in.name
-    if profile_in.avatar_url is not None:
-        current_user.avatar_url = profile_in.avatar_url
-    if profile_in.preferences is not None:
-        if current_user.preferences is None:
-            current_user.preferences = {}
-        new_prefs = dict(current_user.preferences)
-        new_prefs.update(profile_in.preferences)
-        current_user.preferences = new_prefs
-        
-    db.commit()
-    db.refresh(current_user)
-    
-    return {
-        "message": "Profile updated successfully",
-        "user": {
-            "id": str(current_user.id),
-            "email": current_user.email,
-            "role": current_user.role,
-            "name": current_user.name,
-            "avatar_url": current_user.avatar_url,
-            "preferences": current_user.preferences or {}
-        }
+        "user": user
     }
 
 @router.post("/refresh")
@@ -207,7 +160,7 @@ def refresh(request: Request, response: Response, db: Session = Depends(get_db))
     except JWTError:
         raise HTTPException(status_code=401, detail="Invalid refresh token")
     
-    # Check if session exists in DB
+    # Validate session in DB
     db_session = db.query(DBSession).filter(
         DBSession.user_id == uuid.UUID(user_id),
         DBSession.expires_at > datetime.utcnow()
@@ -217,25 +170,104 @@ def refresh(request: Request, response: Response, db: Session = Depends(get_db))
         raise HTTPException(status_code=401, detail="Session expired or invalid")
     
     user = db.query(User).filter(User.id == uuid.UUID(user_id)).first()
-    if not user:
-        raise HTTPException(status_code=401, detail="User not found")
+    if not user or not user.is_active:
+        raise HTTPException(status_code=401, detail="User not found or inactive")
 
+    # Rotate refresh token for maximum security
     new_access_token = create_token(subject=user.id, token_type="access")
+    new_refresh_token = create_token(subject=user.id, token_type="refresh")
     
-    is_prod = settings.ENVIRONMENT.lower() == "production"
-    response.set_cookie(
-        key="access_token",
-        value=f"Bearer {new_access_token}",
-        httponly=True,
-        secure=is_prod,
-        samesite="none" if is_prod else "lax",
-        max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60
-    )
+    # Update current session
+    db_session.expires_at = datetime.utcnow() + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
+    db.commit()
+
+    set_auth_cookies(response, new_access_token, new_refresh_token)
     
     return {"message": "Token refreshed"}
 
 @router.post("/logout")
-def logout(response: Response):
-    response.delete_cookie("access_token")
-    response.delete_cookie("refresh_token")
+def logout(response: Response, request: Request, db: Session = Depends(get_db)):
+    # Optional: Delete session from DB if refresh token is provided
+    refresh_token = request.cookies.get("refresh_token")
+    if refresh_token:
+        try:
+            payload = jwt.decode(refresh_token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+            user_id = payload.get("sub")
+            if user_id:
+                db.query(DBSession).filter(DBSession.user_id == uuid.UUID(user_id)).delete()
+                db.commit()
+        except:
+            pass
+
+    response.delete_cookie("access_token", path="/")
+    response.delete_cookie("refresh_token", path="/")
     return {"message": "Logged out successfully"}
+
+from app.schemas.user import UserUpdate, UserProfileResponse
+from fastapi import UploadFile, File
+import shutil
+import os
+
+@router.get("/me", response_model=UserProfileResponse)
+def get_me(current_user: User = Depends(get_current_user)):
+    return current_user
+
+@router.patch("/profile", response_model=UserProfileResponse)
+def update_profile(
+    profile_in: UserUpdate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    update_data = profile_in.dict(exclude_unset=True)
+    
+    if "preferences" in update_data:
+        if current_user.preferences is None:
+            current_user.preferences = {}
+        # Merge preferences
+        new_prefs = dict(current_user.preferences)
+        new_prefs.update(update_data["preferences"])
+        current_user.preferences = new_prefs
+        del update_data["preferences"]
+        
+    if "cognitive_preferences" in update_data:
+        if current_user.cognitive_preferences is None:
+            current_user.cognitive_preferences = {}
+        # Merge cognitive preferences
+        new_cog_prefs = dict(current_user.cognitive_preferences)
+        new_cog_prefs.update(update_data["cognitive_preferences"])
+        current_user.cognitive_preferences = new_cog_prefs
+        del update_data["cognitive_preferences"]
+
+    # Update other fields
+    for field, value in update_data.items():
+        setattr(current_user, field, value)
+        
+    db.commit()
+    db.refresh(current_user)
+    return current_user
+
+@router.post("/avatar", response_model=UserProfileResponse)
+async def upload_avatar(
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    # In a real app, you would upload to S3 or Cloudinary
+    # For this prototype, we'll save locally in a 'static/avatars' folder
+    upload_dir = "static/avatars"
+    if not os.path.exists(upload_dir):
+        os.makedirs(upload_dir)
+        
+    file_extension = os.path.splitext(file.filename)[1]
+    file_name = f"{current_user.id}{file_extension}"
+    file_path = os.path.join(upload_dir, file_name)
+    
+    with open(file_path, "wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
+        
+    # Update user avatar_url
+    # In a real app, this would be a full URL
+    current_user.avatar_url = f"/static/avatars/{file_name}"
+    db.commit()
+    db.refresh(current_user)
+    return current_user

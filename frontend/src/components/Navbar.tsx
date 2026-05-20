@@ -11,7 +11,7 @@ import { useSidebarStore } from "@/store/useSidebarStore";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { cn } from "@/lib/utils";
 
-import { useAuthStore } from "@/store/authStore";
+import { useAuth } from "@/contexts/AuthContext";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
@@ -38,7 +38,7 @@ const dropdownVariants = {
 
 export function Navbar() {
   const { toggleMobileSidebar } = useSidebarStore();
-  const { user, logout } = useAuthStore();
+  const { user, signOut } = useAuth();
   const router = useRouter();
   const [isWorkspaceOpen, setIsWorkspaceOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
@@ -51,12 +51,12 @@ export function Navbar() {
   useClickOutside(profileRef, () => setIsProfileOpen(false));
 
   const handleLogout = async () => {
-    await logout();
-    router.push("/");
+    await signOut();
   };
 
-  const displayName = user?.name || user?.email.split("@")[0] || "User";
+  const displayName = user?.user_metadata?.full_name || user?.email?.split("@")[0] || "User";
   const userInitials = displayName.slice(0, 2).toUpperCase();
+  const avatarUrl = user?.user_metadata?.avatar_url;
 
   const workspaces = ["Alpha-1", "Project Nexus", "Data Sync Beta"];
 
@@ -167,9 +167,9 @@ export function Navbar() {
             onClick={() => setIsProfileOpen(!isProfileOpen)}
             className="flex items-center gap-1.5 hover:bg-muted p-1 pr-2 rounded-full transition-colors border border-transparent hover:border-border cursor-pointer"
           >
-            {user?.avatar_url ? (
+            {avatarUrl ? (
               <img
-                src={user.avatar_url}
+                src={avatarUrl}
                 alt={displayName}
                 className="h-8 w-8 rounded-full object-cover border border-primary/20 flex-shrink-0"
               />

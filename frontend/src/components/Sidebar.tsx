@@ -22,6 +22,7 @@ import { useEffect } from "react";
 
 const navItems = [
   { icon: LayoutDashboard, label: "Dashboard",        href: "/dashboard" },
+  { icon: User,            label: "Profile",          href: "/dashboard/profile" },
   { icon: Database,        label: "Database",         href: "/dashboard/memory" },
   { icon: Bot,             label: "Assistants",       href: "/dashboard/agents" },
   { icon: Workflow,        label: "Automations",      href: "/dashboard/automations" },

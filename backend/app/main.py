@@ -7,6 +7,7 @@ from app.api.websockets import router as ws_router
 from app.orchestration.bus import event_bus
 from app.services.llm import OllamaService
 import logging
+import os
 
 logger = logging.getLogger(__name__)
 
@@ -51,6 +52,8 @@ async def lifespan(app: FastAPI):
     logger.info("Shutting down Cognitive OS Backend.")
 
 
+from fastapi.staticfiles import StaticFiles
+
 app = FastAPI(
     title=settings.PROJECT_NAME,
     version=settings.VERSION,
@@ -60,6 +63,15 @@ app = FastAPI(
     ),
     lifespan=lifespan,
 )
+
+# Ensure static directory exists
+if not os.path.exists("static"):
+    os.makedirs("static")
+if not os.path.exists("static/avatars"):
+    os.makedirs("static/avatars")
+
+# Mount static files
+app.mount("/static", StaticFiles(directory="static"), name="static")
 
 # CORS — allow specific origins for local dev or production Vercel apps
 origins = [

@@ -1,20 +1,12 @@
 import { create } from 'zustand'
 import { apiClient } from '@/lib/api'
-
-interface User {
-  id: string;
-  email: string;
-  role: string;
-  name?: string;
-  avatar_url?: string;
-  preferences?: Record<string, any>;
-}
+import { UserProfile } from '@/lib/types'
 
 interface AuthState {
-  user: User | null;
+  user: UserProfile | null;
   isAuthenticated: boolean;
   isLoading: boolean;
-  setUser: (user: User | null) => void;
+  setUser: (user: UserProfile | null) => void;
   fetchMe: () => Promise<void>;
   logout: () => Promise<void>;
 }
