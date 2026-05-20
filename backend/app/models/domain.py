@@ -14,8 +14,18 @@ class User(Base):
     role = Column(String(50), default="user")
     is_active = Column(Boolean, default=True)
     name = Column(String(255), nullable=True)
+    full_name = Column(String(255), nullable=True)
     avatar_url = Column(String(500), nullable=True)
     preferences = Column(JSONB, default=dict, nullable=True)
+    cognitive_preferences = Column(JSONB, default=lambda: {
+        "default_model": "llama3.2",
+        "temperature": 0.7,
+        "memory_retrieval_depth": 5,
+        "agent_verbosity": "medium",
+        "voice_enabled": False
+    }, nullable=True)
+    onboarding_completed = Column(Boolean, default=False, nullable=False)
+    timezone = Column(String(100), default="UTC", nullable=False)
     created_at = Column(DateTime(timezone=True), default=datetime.utcnow)
     updated_at = Column(DateTime(timezone=True), default=datetime.utcnow, onupdate=datetime.utcnow)
 
@@ -25,6 +35,8 @@ class User(Base):
     conversations = relationship("Conversation", back_populates="user", cascade="all, delete-orphan")
     memories = relationship("Memory", back_populates="user", cascade="all, delete-orphan")
     notifications = relationship("Notification", back_populates="user", cascade="all, delete-orphan")
+    subscription = relationship("Subscription", back_populates="user", cascade="all, delete-orphan", uselist=False)
+    activity_logs = relationship("ActivityLog", back_populates="user")
 
 class Session(Base):
     __tablename__ = "sessions"
@@ -154,3 +166,38 @@ class Notification(Base):
     created_at = Column(DateTime(timezone=True), default=datetime.utcnow)
 
     user = relationship("User", back_populates="notifications")
+
+class Subscription(Base):
+    __tablename__ = "subscriptions"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), unique=True, nullable=False)
+    status = Column(String(50), default="trialing", nullable=False)
+    tier = Column(String(50), default="free", nullable=False)
+    stripe_customer_id = Column(String(255), unique=True, nullable=True)
+    stripe_subscription_id = Column(String(255), unique=True, nullable=True)
+    price_id = Column(String(255), nullable=True)
+    quantity = Column(Integer, default=1)
+    cancel_at_period_end = Column(Boolean, default=False, nullable=False)
+    trial_start = Column(DateTime(timezone=True), nullable=True)
+    trial_end = Column(DateTime(timezone=True), nullable=True)
+    current_period_start = Column(DateTime(timezone=True), default=datetime.utcnow, nullable=False)
+    current_period_end = Column(DateTime(timezone=True), default=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime(timezone=True), default=datetime.utcnow)
+    updated_at = Column(DateTime(timezone=True), default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    user = relationship("User", back_populates="subscription")
+
+class ActivityLog(Base):
+    __tablename__ = "activity_logs"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
+    ip_address = Column(String(100), nullable=True)
+    user_agent = Column(String(500), nullable=True)
+    action_type = Column(String(100), nullable=False, index=True)
+    severity_level = Column(String(50), default="info", nullable=False)
+    metadata_json = Column(JSONB, default=dict, nullable=True)
+    created_at = Column(DateTime(timezone=True), default=datetime.utcnow)
+
+    user = relationship("User", back_populates="activity_logs")

@@ -2,11 +2,15 @@ import { Sidebar } from "@/components/Sidebar";
 import { Navbar } from "@/components/Navbar";
 import { DashboardContentWrapper } from "@/components/DashboardContentWrapper";
 
-export default function DashboardLayout({
+import { requireAuth } from "@/utils/auth";
+
+export default async function DashboardLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  await requireAuth()
+
   return (
     <div className="flex h-screen overflow-hidden bg-background text-foreground transition-theme">
       {/* Ambient background gradients */}
