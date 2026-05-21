@@ -36,6 +36,7 @@ class Settings(BaseSettings):
 
     # Legacy key — kept so old .env files don't break pydantic-settings
     OPENROUTER_API_KEY: str = ""
+    OPENAI_API_KEY: str = ""
 
     # CORS Allowed Origins (comma-separated list for production, e.g., https://my-app.vercel.app)
     ALLOWED_ORIGINS: str = ""
