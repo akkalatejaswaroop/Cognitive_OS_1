@@ -240,6 +240,25 @@ def get_me(request: Request, db: Session = Depends(get_db)):
     if payload is None:
         try:
             import firebase_admin.auth
+            from firebase_admin import credentials, initialize_app, get_app
+            
+            try:
+                get_app()
+            except ValueError:
+                if settings.FIREBASE_SERVICE_ACCOUNT_JSON:
+                    import json
+                    try:
+                        cred_dict = json.loads(settings.FIREBASE_SERVICE_ACCOUNT_JSON)
+                        cred = credentials.Certificate(cred_dict)
+                    except json.JSONDecodeError:
+                        cred = credentials.Certificate(settings.FIREBASE_SERVICE_ACCOUNT_JSON)
+                    initialize_app(cred)
+                else:
+                    options = {}
+                    if getattr(settings, "FIREBASE_PROJECT_ID", None):
+                        options["projectId"] = settings.FIREBASE_PROJECT_ID
+                    initialize_app(options=options if options else None)
+                    
             decoded_token = firebase_admin.auth.verify_id_token(token)
             firebase_uid = decoded_token.get("uid")
             payload = decoded_token

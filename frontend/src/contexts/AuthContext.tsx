@@ -8,6 +8,7 @@ import {
   createUserWithEmailAndPassword, 
   signOut as firebaseSignOut,
   onAuthStateChanged,
+  onIdTokenChanged,
   GoogleAuthProvider,
   signInWithPopup
 } from 'firebase/auth'
@@ -62,19 +63,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     let mounted = true;
     
-    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+    const unsubscribe = onIdTokenChanged(auth, async (currentUser) => {
       if (mounted) {
-        setUser(formatUser(currentUser));
-        setIsLoading(false);
-        
         // Sync token with backend if necessary by calling your API
         if (currentUser) {
           const token = await currentUser.getIdToken();
           // You can set cookie here or let the frontend pass the token in headers
           document.cookie = `access_token=Bearer ${token}; path=/; max-age=3600; SameSite=Lax`;
+          setUser(formatUser(currentUser));
         } else {
           document.cookie = `access_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT`;
+          setUser(null);
         }
+        setIsLoading(false);
       }
     });
 

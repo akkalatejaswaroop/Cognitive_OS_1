@@ -54,7 +54,10 @@ def get_user_from_token(db: Session, token: str) -> User:
                         cred = credentials.Certificate(settings.FIREBASE_SERVICE_ACCOUNT_JSON)
                     initialize_app(cred)
                 else:
-                    initialize_app()
+                    options = {}
+                    if getattr(settings, "FIREBASE_PROJECT_ID", None):
+                        options["projectId"] = settings.FIREBASE_PROJECT_ID
+                    initialize_app(options=options if options else None)
                     
             decoded_token = firebase_admin.auth.verify_id_token(token)
             firebase_uid = decoded_token.get("uid")

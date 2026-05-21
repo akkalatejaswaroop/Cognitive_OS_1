@@ -18,6 +18,7 @@ class Settings(BaseSettings):
 
     # Firebase Admin SDK credentials (path to JSON file or JSON string)
     FIREBASE_SERVICE_ACCOUNT_JSON: str = ""
+    FIREBASE_PROJECT_ID: str = ""
 
     # Postgres Database (Neon)
     DATABASE_URL: str = "postgresql://neondb_owner:npg_o4ARTSGqsm0W@ep-mute-mountain-ak7nhohq-pooler.c-3.us-west-2.aws.neon.tech/neondb?sslmode=require"
