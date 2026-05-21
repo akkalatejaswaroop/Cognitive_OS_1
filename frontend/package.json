@@ -13,7 +13,7 @@
     "@neondatabase/auth": "^0.4.1-beta",
     "chromadb": "^3.4.3",
     "clsx": "^2.1.1",
-    "firebase": "^10.12.0",
+    "firebase": "^12.13.0",
     "framer-motion": "^12.38.0",
     "lucide-react": "^1.16.0",
     "next": "16.2.6",
@@ -35,5 +35,9 @@
     "eslint-config-next": "16.2.6",
     "tailwindcss": "^4",
     "typescript": "^5"
+  },
+  "overrides": {
+    "postcss": "^8.5.10",
+    "better-auth": "^1.6.2"
   }
 }
