@@ -30,8 +30,8 @@ function CreateWorkspaceModal({
     try {
       await onCreate(name.trim());
       onClose();
-    } catch (e: any) {
-      setError(e.message || "Failed to create workspace");
+    } catch (e: unknown) {
+      setError((e as Error).message || "Failed to create workspace");
     } finally {
       setLoading(false);
     }
@@ -209,10 +209,9 @@ export default function DashboardPage() {
   const fetchWorkspaces = useCallback(async () => {
     try {
       const res = await apiClient("/api/v1/workspaces") as Response;
-      if (res.ok) {
-        const data = await res.json();
-        setWorkspaces(data);
-      }
+      if (!res.ok) throw new Error("Failed to fetch workspaces");
+      const data = await res.json();
+      setWorkspaces(data);
     } catch (e) {
       console.error("Failed to fetch workspaces", e);
     } finally {
@@ -221,6 +220,7 @@ export default function DashboardPage() {
   }, []);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- SSR guard
     setMounted(true);
     fetchWorkspaces();
   }, [fetchWorkspaces]);
@@ -247,7 +247,8 @@ export default function DashboardPage() {
   };
 
   const handleDelete = async (id: string) => {
-    await apiClient(`/api/v1/workspaces/${id}`, { method: "DELETE" });
+    const res = await apiClient(`/api/v1/workspaces/${id}`, { method: "DELETE" }) as Response;
+    if (!res.ok) throw new Error("Failed to delete workspace");
     setWorkspaces((prev) => prev.filter((ws) => ws.id !== id));
   };
 

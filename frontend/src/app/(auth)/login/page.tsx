@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState, useEffect } from "react"
+import React, { useState, useEffect, useRef } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
@@ -41,14 +41,23 @@ function LoginForm() {
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [infoMessage, setInfoMessage] = useState<string | null>(null)
 
+  const successTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  useEffect(() => {
+    return () => {
+      if (successTimerRef.current) clearTimeout(successTimerRef.current)
+    }
+  }, [])
+
   // Grab any message passed from signup page (e.g. email verification instructions)
   useEffect(() => {
     const msg = searchParams.get("message")
     if (msg) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- sync URL params
       setInfoMessage(msg)
     }
     const err = searchParams.get("error")
     if (err) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- sync URL params
       setSubmitError(err)
     }
   }, [searchParams])
@@ -81,16 +90,21 @@ function LoginForm() {
       }
 
       setIsSuccess(true)
-      setTimeout(() => {
+      successTimerRef.current = setTimeout(() => {
         router.push("/dashboard")
         router.refresh()
       }, 2000)
 
-    } catch (err: any) {
-      setSubmitError(err.message || "Invalid email or password. Please verify your credentials.")
+    } catch (err: unknown) {
+      setSubmitError((err as Error).message || "Invalid email or password. Please verify your credentials.")
     } finally {
       setIsLoading(false)
     }
+  }
+
+  const onFormSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    handleSubmit(onSubmit)(e);
   }
 
   const handleGoogleSignIn = async () => {
@@ -106,13 +120,13 @@ function LoginForm() {
       }
 
       setIsSuccess(true)
-      setTimeout(() => {
+      successTimerRef.current = setTimeout(() => {
         router.push("/dashboard")
         router.refresh()
       }, 2000)
 
-    } catch (err: any) {
-      setSubmitError(err.message || "Google sign in failed.")
+    } catch (err: unknown) {
+      setSubmitError((err as Error).message || "Google sign in failed.")
     } finally {
       setIsLoading(false)
     }
@@ -158,7 +172,7 @@ function LoginForm() {
             {!isSuccess ? (
               <motion.form 
                 key="login-form"
-                onSubmit={handleSubmit(onSubmit)} 
+                onSubmit={onFormSubmit}
                 className="space-y-5"
                 noValidate
               >
@@ -364,7 +378,7 @@ function LoginForm() {
           )}
 
           <div className="mt-8 text-center text-xs text-muted-foreground border-t border-border/30 pt-6">
-            Don't have an account?{" "}
+            Don&apos;t have an account?{" "}
             <Link 
               href="/signup" 
               className="text-primary hover:text-primary/85 font-semibold underline underline-offset-4 duration-300"

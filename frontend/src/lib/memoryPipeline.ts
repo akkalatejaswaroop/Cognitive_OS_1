@@ -14,7 +14,7 @@ export interface MemoryMetadata {
   type: MemoryType;
   importance: number;
   tags?: string[];
-  [key: string]: any;
+  [key: string]: string | number | boolean | string[] | undefined;
 }
 
 export interface MemoryPayload {
@@ -52,17 +52,28 @@ class TextCleaner {
  * --- Memory Embedding Pipeline ---
  */
 export class MemoryEmbeddingPipeline {
-  private openai: OpenAI;
+  private _openai: OpenAI | null = null;
   private chroma: ChromaClient;
   private collection: Collection | null = null;
   private maxRetries: number;
+  private config: PipelineConfig;
 
   constructor(config: PipelineConfig) {
-    this.openai = new OpenAI({ apiKey: config.openaiApiKey });
+    this.config = config;
     this.chroma = new ChromaClient({
       path: `http://${config.chromaHost}:${config.chromaPort}`
     });
     this.maxRetries = config.maxRetries || 3;
+  }
+
+  private get openai(): OpenAI {
+    if (!this._openai) {
+      if (!this.config.openaiApiKey) {
+        throw new Error('OpenAI API key not configured');
+      }
+      this._openai = new OpenAI({ apiKey: this.config.openaiApiKey });
+    }
+    return this._openai;
   }
 
   /**
@@ -141,7 +152,7 @@ export class MemoryEmbeddingPipeline {
     await this.collection.add({
       ids: [id],
       embeddings: [embedding],
-      metadatas: [metadata],
+      metadatas: [metadata as Record<string, string | number | boolean | string[]>],
       documents: [content]
     });
   }
@@ -149,7 +160,7 @@ export class MemoryEmbeddingPipeline {
   /**
    * Semantic Search
    */
-  async searchMemories(userId: string, query: string, nResults: number = 5): Promise<any[]> {
+  async searchMemories(userId: string, query: string, nResults: number = 5): Promise<{ id: string; content: string; metadata: Record<string, unknown>; similarity: number }[]> {
     if (!this.collection) throw new Error('Collection not initialized');
 
     try {
@@ -166,8 +177,8 @@ export class MemoryEmbeddingPipeline {
       // 3. Format Results
       const formatted = results.ids[0].map((id, i) => ({
         id,
-        content: results.documents[0][i],
-        metadata: results.metadatas[0][i],
+        content: results.documents[0][i] || '',
+        metadata: results.metadatas[0][i] || {},
         similarity: 1 - (results.distances?.[0][i] || 0) // Cosine similarity
       }));
 

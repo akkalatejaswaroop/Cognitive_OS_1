@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState } from "react"
+import React, { useState, useEffect, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
@@ -49,6 +49,13 @@ export default function SignupPage() {
   const [isLoading, setIsLoading] = useState(false)
   const [isSuccess, setIsSuccess] = useState(false)
   const [submitError, setSubmitError] = useState<string | null>(null)
+
+  const successTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  useEffect(() => {
+    return () => {
+      if (successTimerRef.current) clearTimeout(successTimerRef.current)
+    }
+  }, [])
   
   // 2. React Hook Form Setup
   const {
@@ -110,12 +117,12 @@ export default function SignupPage() {
       }
 
       setIsSuccess(true)
-      setTimeout(() => {
+      successTimerRef.current = setTimeout(() => {
         router.push("/login?message=Check your email to confirm your account")
       }, 3000)
 
-    } catch (err: any) {
-      setSubmitError(err.message || "An unexpected error occurred. Please try again.")
+    } catch (err: unknown) {
+      setSubmitError((err as Error).message || "An unexpected error occurred. Please try again.")
     } finally {
       setIsLoading(false)
     }
@@ -133,12 +140,12 @@ export default function SignupPage() {
       }
 
       setIsSuccess(true)
-      setTimeout(() => {
+      successTimerRef.current = setTimeout(() => {
         router.push("/dashboard")
       }, 2000)
 
-    } catch (err: any) {
-      setSubmitError(err.message || "Google sign up failed.")
+    } catch (err: unknown) {
+      setSubmitError((err as Error).message || "Google sign up failed.")
     } finally {
       setIsLoading(false)
     }

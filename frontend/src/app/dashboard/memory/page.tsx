@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Search, 
@@ -8,7 +8,6 @@ import {
   Zap, 
   Star, 
   Trash2, 
-  Filter, 
   BrainCircuit,
   Calendar,
   Layers,
@@ -17,6 +16,7 @@ import {
 } from 'lucide-react';
 import { MemoryTimeline, Memory as TimelineMemory } from '@/components/MemoryTimeline';
 import { useAuth } from '@/contexts/AuthContext';
+import { apiClient } from '@/lib/api';
 
 // --- Types ---
 
@@ -78,7 +78,7 @@ const MemoryCard = ({ memory, onDelete }: { memory: Memory; onDelete: (id: strin
             </div>
           </div>
           <p className="text-gray-200 leading-relaxed mb-4 line-clamp-3 italic">
-            "{memory.content}"
+            &ldquo;{memory.content}&rdquo;
           </p>
         </div>
         
@@ -127,19 +127,17 @@ export default function MemoryDashboard() {
     
     setIsSearching(!!query);
     try {
-      const response = await fetch(query ? '/api/memory/search' : '/api/memory/search', {
+      const response = await apiClient('/api/v1/memory/query', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          userId: user.uid,
-          query: query || '*', // If no query, we might want a different strategy, but for now we search all
-          nResults: 20
+          query: query || '',
+          n_results: 20
         })
-      });
+      }) as Response;
 
-      const result = await response.json();
-      if (result.success) {
-        setMemories(result.data);
+      if (response.ok) {
+        const result = await response.json();
+        setMemories(result.results || []);
       }
     } catch (error) {
       console.error('Failed to fetch memories:', error);
@@ -151,6 +149,7 @@ export default function MemoryDashboard() {
 
   useEffect(() => {
     if (user) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- initial data load
       fetchMemories();
     }
   }, [user, fetchMemories]);
@@ -164,7 +163,9 @@ export default function MemoryDashboard() {
     if (!confirm('Are you sure you want to delete this memory?')) return;
 
     try {
-      const response = await fetch(`/api/memory/delete?id=${id}`, { method: 'DELETE' });
+      const response = await apiClient(`/api/v1/memory/${id}`, {
+        method: 'DELETE'
+      }) as Response;
       if (response.ok) {
         setMemories(prev => prev.filter(m => m.id !== id));
       }
@@ -191,7 +192,7 @@ export default function MemoryDashboard() {
       importance: m.metadata.importance,
       timestamp: m.metadata.timestamp,
       tags: m.metadata.tags,
-      summary: (m.metadata as any).summary // AI summary if exists
+      summary: ((m.metadata as Record<string, unknown>).summary as string) || "" // AI summary if exists
     }));
   }, [memories]);
 
@@ -279,7 +280,7 @@ export default function MemoryDashboard() {
               </div>
               <div className="mt-8 pt-6 border-t border-white/5">
                 <p className="text-[12px] text-gray-400 leading-relaxed italic">
-                  "Your semantic focus has shifted towards <span className="text-white">Architecture</span> and <span className="text-white">Logic</span> in the last 48 hours."
+                  &ldquo;Your semantic focus has shifted towards <span className="text-white">Architecture</span> and <span className="text-white">Logic</span> in the last 48 hours.&rdquo;
                 </p>
               </div>
             </GlassCard>
@@ -326,7 +327,7 @@ export default function MemoryDashboard() {
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
                 <AnimatePresence mode='popLayout'>
-                  {filteredMemories.map(memory => (
+                  {filteredMemories.map((memory: Memory) => (
                     <MemoryCard key={memory.id} memory={memory} onDelete={handleDelete} />
                   ))}
                 </AnimatePresence>

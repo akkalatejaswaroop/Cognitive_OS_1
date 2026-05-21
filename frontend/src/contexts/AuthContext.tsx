@@ -7,7 +7,6 @@ import {
   signInWithEmailAndPassword, 
   createUserWithEmailAndPassword, 
   signOut as firebaseSignOut,
-  onAuthStateChanged,
   onIdTokenChanged,
   GoogleAuthProvider,
   signInWithPopup
@@ -69,7 +68,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (currentUser) {
           const token = await currentUser.getIdToken();
           // You can set cookie here or let the frontend pass the token in headers
-          document.cookie = `access_token=Bearer ${token}; path=/; max-age=3600; SameSite=Lax`;
+          const secure = window.location.protocol === 'https:' ? '; Secure' : '';
+          document.cookie = `access_token=Bearer ${token}; path=/; max-age=3600; SameSite=Lax${secure}`;
           setUser(formatUser(currentUser));
         } else {
           document.cookie = `access_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT`;
@@ -88,14 +88,40 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   /**
    * Sign in with email and password
    */
-  const signIn = async (email: any, password: any) => {
+  const mapFirebaseError = (err: { code?: string } | null): string => {
+    const code = err?.code || ''
+    if (code.includes('auth/user-not-found') || code.includes('auth/wrong-password') || code.includes('auth/invalid-credential')) {
+      return 'Invalid email or password.'
+    }
+    if (code.includes('auth/email-already-in-use')) {
+      return 'An account with this email already exists.'
+    }
+    if (code.includes('auth/weak-password')) {
+      return 'Password is too weak. Use at least 6 characters.'
+    }
+    if (code.includes('auth/invalid-email')) {
+      return 'Please enter a valid email address.'
+    }
+    if (code.includes('auth/too-many-requests')) {
+      return 'Too many attempts. Please try again later.'
+    }
+    if (code.includes('auth/user-disabled')) {
+      return 'This account has been disabled.'
+    }
+    if (code.includes('auth/popup-closed-by-user')) {
+      return 'Sign in was cancelled.'
+    }
+    return 'An unexpected error occurred. Please try again.'
+  }
+
+  const signIn = async (email: string, password: string) => {
     setError(null)
     setIsLoading(true)
     try {
       await signInWithEmailAndPassword(auth, email, password)
       return { error: null }
-    } catch (err: any) {
-      const errMsg = err.message || 'An unexpected error occurred during login'
+    } catch (err: unknown) {
+      const errMsg = mapFirebaseError(err as { code?: string })
       setError(errMsg)
       return { error: new Error(errMsg) }
     } finally {
@@ -103,17 +129,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }
 
-  /**
-   * Sign up with email and password
-   */
-  const signUp = async (email: any, password: any) => {
+  const signUp = async (email: string, password: string) => {
     setError(null)
     setIsLoading(true)
     try {
       await createUserWithEmailAndPassword(auth, email, password)
       return { error: null }
-    } catch (err: any) {
-      const errMsg = err.message || 'An unexpected error occurred during signup'
+    } catch (err: unknown) {
+      const errMsg = mapFirebaseError(err as { code?: string })
       setError(errMsg)
       return { error: new Error(errMsg) }
     } finally {
@@ -121,9 +144,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }
 
-  /**
-   * Sign in with Google
-   */
   const signInWithGoogle = async () => {
     setError(null)
     setIsLoading(true)
@@ -131,8 +151,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const provider = new GoogleAuthProvider()
       await signInWithPopup(auth, provider)
       return { error: null }
-    } catch (err: any) {
-      const errMsg = err.message || 'Failed to sign in with Google'
+    } catch (err: unknown) {
+      const errMsg = mapFirebaseError(err as { code?: string })
       setError(errMsg)
       return { error: new Error(errMsg) }
     } finally {
@@ -140,9 +160,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }
 
-  /**
-   * Sign out current session
-   */
   const signOut = async () => {
     setError(null)
     setIsLoading(true)
@@ -150,8 +167,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       await firebaseSignOut(auth)
       setUser(null)
       router.push('/login')
-    } catch (err: any) {
-      setError(err.message || 'Failed to sign out')
+    } catch {
+      setError('Failed to sign out.')
     } finally {
       setIsLoading(false)
     }

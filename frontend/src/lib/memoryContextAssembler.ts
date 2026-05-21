@@ -44,8 +44,10 @@ class TokenCounter {
  */
 export class MemoryContextAssembler {
   private retrievalEngine: ContextRetrievalEngine;
+  private pipeline: MemoryEmbeddingPipeline;
 
   constructor(pipeline: MemoryEmbeddingPipeline) {
+    this.pipeline = pipeline;
     this.retrievalEngine = new ContextRetrievalEngine(pipeline);
   }
 
@@ -60,25 +62,16 @@ export class MemoryContextAssembler {
     const { maxTokens, compressionRatio = 1.0, includeMetadata = true } = options;
 
     // 1. Retrieve ranked candidates from CRE
-    // We fetch more than we need to allow for compression and filtering
-    const results = await this.retrievalEngine.getReasoningContext(userId, query, maxTokens * 2);
-    
     // The CRE returns a formatted string. For more granular control, 
     // we would ideally have it return the raw array of ranked objects.
-    // Let's assume we modify/extend the CRE or use its logic here.
-    
-    // Note: Since I just implemented the CRE, I'll leverage its internal logic 
-    // but optimized for the "Assembly" phase.
     
     // 2. Fetch raw memories for granular processing
-    // (Re-using pipeline directly for raw access)
-    // @ts-ignore - Accessing pipeline via private if needed or just use search
-    const candidates = await (this.retrievalEngine as any).pipeline.searchMemories(userId, query, 30);
+    const candidates = await this.pipeline.searchMemories(userId, query, 30);
 
     // 3. Re-rank with CRE logic (Composite Score)
-    const scoredChunks: ContextChunk[] = candidates.map((c: any) => {
-      const recency = this.calculateRecency(c.metadata.timestamp);
-      const importance = c.metadata.importance || 0.5;
+    const scoredChunks: ContextChunk[] = candidates.map((c) => {
+      const recency = this.calculateRecency(c.metadata.timestamp as string);
+      const importance = (c.metadata.importance as number) || 0.5;
       const score = (c.similarity * 0.5) + (recency * 0.3) + (importance * 0.2);
       
       // Semantic Compression: Truncate content based on compressionRatio if score is lower
@@ -93,9 +86,9 @@ export class MemoryContextAssembler {
         sourceId: c.id,
         score: score,
         tokens: TokenCounter.estimate(processedContent),
-        type: c.metadata.type
+        type: c.metadata.type as string
       };
-    }).sort((a: any, b: any) => b.score - a.score);
+    }).sort((a, b) => b.score - a.score);
 
     // 4. Pack into Token Budget with Duplicate Filtering
     const finalChunks: ContextChunk[] = [];

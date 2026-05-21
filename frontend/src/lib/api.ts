@@ -13,13 +13,29 @@ function onRefreshed(token: string) {
 }
 
 async function refreshAccessToken() {
+  // Try Firebase token refresh first (primary login method)
+  if (typeof window !== 'undefined') {
+    try {
+      const { auth } = await import('@/utils/firebase/config');
+      if (auth?.currentUser) {
+        const freshToken = await auth.currentUser.getIdToken(true);
+        const secure = window.location.protocol === 'https:' ? '; Secure' : '';
+        document.cookie = `access_token=Bearer ${freshToken}; path=/; max-age=3600; SameSite=Lax${secure}`;
+        return true;
+      }
+    } catch {
+      // Firebase not available — fall through to backend refresh
+    }
+  }
+
+  // Fallback: backend custom JWT refresh (for non-Firebase sessions)
   try {
     const res = await fetch(`${apiBaseUrl}/api/v1/auth/refresh`, {
       method: "POST",
       credentials: "include",
     });
     return res.ok;
-  } catch (error) {
+  } catch {
     return false;
   }
 }
@@ -36,7 +52,7 @@ export async function apiClient(endpoint: string, options: RequestInit = {}): Pr
     },
   };
 
-  let response = await fetch(url, defaultOptions);
+  const response = await fetch(url, defaultOptions);
 
   // If 401 Unauthorized, try to refresh
   if (response.status === 401 && !url.includes("/auth/login") && !url.includes("/auth/refresh")) {

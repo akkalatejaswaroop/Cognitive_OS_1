@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState } from "react"
+import React, { useState, useEffect, useRef } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
@@ -47,6 +47,13 @@ function ResetPasswordForm() {
   const [isLoading, setIsLoading] = useState(false)
   const [isSuccess, setIsSuccess] = useState(false)
   const [submitError, setSubmitError] = useState<string | null>(null)
+
+  const successTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  useEffect(() => {
+    return () => {
+      if (successTimerRef.current) clearTimeout(successTimerRef.current)
+    }
+  }, [])
 
   // 2. React Hook Form Setup
   const {
@@ -106,12 +113,12 @@ function ResetPasswordForm() {
       await confirmPasswordReset(auth, oobCode, data.password)
 
       setIsSuccess(true)
-      setTimeout(() => {
+      successTimerRef.current = setTimeout(() => {
         router.push("/login?message=Password reset successfully. Sign in with your new credentials.")
       }, 3000)
 
-    } catch (err: any) {
-      setSubmitError(err.message || "An unexpected error occurred. Please try again.")
+    } catch (err: unknown) {
+      setSubmitError((err as Error).message || "An unexpected error occurred. Please try again.")
     } finally {
       setIsLoading(false)
     }

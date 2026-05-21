@@ -61,10 +61,9 @@ async def websocket_endpoint(websocket: WebSocket, task_id: str, db: Session = D
     try:
         if not token:
             raise Exception("No token")
-        get_user_from_token(db, token)
+        await asyncio.to_thread(get_user_from_token, db, token)
     except Exception:
-        # Close connection if token is invalid or missing
-        await websocket.accept() # Must accept before closing with a code
+        await websocket.accept()
         await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
         return
 

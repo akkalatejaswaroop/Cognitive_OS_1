@@ -145,8 +145,12 @@ class SupervisorAgent(BaseAgent):
                 "task": sub_task,
                 "parent_id": parent_task_id,
             })
-            result = await future
+            # 30-second timeout to prevent hanging if sub-agent never responds
+            result = await asyncio.wait_for(future, timeout=30.0)
             return result
+        except asyncio.TimeoutError:
+            logger.error(f"Sub-agent {sub_agent} timed out for task {sub_task_id}")
+            raise TimeoutError(f"Sub-agent {sub_agent} did not respond within 30 seconds.")
         finally:
             # Clean up subscriber channel
             event_bus.unsubscribe(f"task.status.{sub_task_id}", status_callback)

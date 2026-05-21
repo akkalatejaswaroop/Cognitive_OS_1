@@ -55,8 +55,8 @@ export default function ForgotPasswordPage() {
 
       setIsSuccess(true)
 
-    } catch (err: any) {
-      setSubmitError(err.message || "Unable to send recovery instructions. Please try again.")
+    } catch (err: unknown) {
+      setSubmitError((err as Error).message || "Unable to send recovery instructions. Please try again.")
     } finally {
       setIsLoading(false)
     }

@@ -11,7 +11,7 @@ class Settings(BaseSettings):
     API_V1_STR: str = "/api/v1"
 
     # Security
-    SECRET_KEY: str = "super-secret-key-change-in-production"
+    SECRET_KEY: str = ""
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
@@ -20,8 +20,8 @@ class Settings(BaseSettings):
     FIREBASE_SERVICE_ACCOUNT_JSON: str = ""
     FIREBASE_PROJECT_ID: str = ""
 
-    # Postgres Database (Neon)
-    DATABASE_URL: str = "postgresql://neondb_owner:npg_o4ARTSGqsm0W@ep-mute-mountain-ak7nhohq-pooler.c-3.us-west-2.aws.neon.tech/neondb?sslmode=require"
+    # Postgres Database (Neon) — MUST be set via .env or environment variable
+    DATABASE_URL: str = ""
 
     # ChromaDB (vector store)
     VECTORDB_HOST: str = "localhost"
@@ -68,6 +68,20 @@ def setup_logging():
     root_logger.addHandler(file_handler)
 
 
-import logging.handlers  # noqa: E402 — needed for the handler above
-
 setup_logging()
+
+
+def validate_settings():
+    if not settings.DATABASE_URL:
+        raise RuntimeError(
+            "DATABASE_URL is not configured. Set it in .env file or "
+            "as an environment variable."
+        )
+    if not settings.SECRET_KEY:
+        raise RuntimeError(
+            "SECRET_KEY is not configured. Set it in .env file or "
+            "as an environment variable."
+        )
+
+
+validate_settings()

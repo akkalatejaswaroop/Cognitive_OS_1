@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional, Union, Any
 from jose import jwt
 import bcrypt
@@ -15,7 +15,7 @@ def get_password_hash(password: str) -> str:
     return bcrypt.hashpw(password.encode('utf-8'), salt).decode('utf-8')
 
 def create_token(subject: Union[str, Any], token_type: str = "access") -> str:
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     if token_type == "access":
         expire = now + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
     else:

@@ -39,10 +39,12 @@ class EventBus:
             
             if topic in self.subscribers:
                 for callback in self.subscribers[topic]:
-                    try:
-                        asyncio.create_task(callback(payload))
-                    except Exception as e:
-                        logger.error(f"Error in subscriber for topic {topic}: {e}")
+                    task = asyncio.create_task(callback(payload))
+                    task.add_done_callback(
+                        lambda t: logger.error(
+                            f"Error in subscriber for topic {topic}: {t.exception()}"
+                        ) if t.exception() else None
+                    )
             
             self._queue.task_done()
 

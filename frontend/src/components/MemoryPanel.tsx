@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Database, FileText, Link as LinkIcon, Search, Loader2, Cpu, Sparkles, Tag, Layers, Network } from "lucide-react";
+import { Database, FileText, Link as LinkIcon, Search, Loader2, Sparkles, Network } from "lucide-react";
 import { apiClient } from "@/lib/api";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
@@ -82,6 +82,7 @@ export function MemoryPanel() {
   };
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- initial data fetch
     fetchMemories("");
   }, []);
 

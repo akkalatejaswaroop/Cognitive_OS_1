@@ -1,7 +1,7 @@
 import logging
 from typing import List, Optional, Dict, Any
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from chromadb.utils import embedding_functions
 from app.core.database import chroma_client
 from app.core.config import settings
@@ -10,29 +10,38 @@ logger = logging.getLogger(__name__)
 
 class ChromaMemoryManager:
     """
-    Manages semantic memory using ChromaDB and OpenAI embeddings.
+    Manages semantic memory using ChromaDB.
+    Uses OpenAI embeddings when API key is available, falls back to Ollama embeddings otherwise.
     """
     def __init__(self, collection_name: str = "cognitive_memory_v1"):
         self.collection_name = collection_name
-        self.openai_ef = None
+        self.embedding_function = None
         self.collection = None
 
         if not chroma_client:
             logger.error("ChromaDB client is not initialized. Memory features will be unavailable.")
             return
 
-        # Initialize OpenAI Embedding Function
-        # Note: Ensure OPENAI_API_KEY is in your environment variables
+        # Initialize embedding function - prefer OpenAI, fallback to Ollama
         try:
-            self.openai_ef = embedding_functions.OpenAIEmbeddingFunction(
-                api_key=settings.OPENAI_API_KEY,
-                model_name="text-embedding-3-small"
-            )
+            if settings.OPENAI_API_KEY and settings.OPENAI_API_KEY != "sk-xxxx...":
+                self.embedding_function = embedding_functions.OpenAIEmbeddingFunction(
+                    api_key=settings.OPENAI_API_KEY,
+                    model_name="text-embedding-3-small"
+                )
+                logger.info("Using OpenAI embeddings for ChromaDB.")
+            else:
+                # Use Ollama embeddings as fallback
+                self.embedding_function = embedding_functions.OllamaEmbeddingFunction(
+                    url=f"{settings.OLLAMA_BASE_URL}/api/embeddings",
+                    model_name=settings.OLLAMA_EMBED_MODEL
+                )
+                logger.info(f"Using Ollama embeddings ({settings.OLLAMA_EMBED_MODEL}) for ChromaDB.")
             
             # Get or create collection with the embedding function
             self.collection = chroma_client.get_or_create_collection(
                 name=self.collection_name,
-                embedding_function=self.openai_ef,
+                embedding_function=self.embedding_function,
                 metadata={"hnsw:space": "cosine"} # Use cosine similarity
             )
             logger.info(f"ChromaDB collection '{self.collection_name}' initialized.")
@@ -58,7 +67,7 @@ class ChromaMemoryManager:
         enriched_metadata = {
             "user_id": user_id,
             "memory_type": memory_type,
-            "created_at": datetime.utcnow().isoformat(),
+            "created_at": datetime.now(timezone.utc).isoformat(),
             **(metadata or {})
         }
 
