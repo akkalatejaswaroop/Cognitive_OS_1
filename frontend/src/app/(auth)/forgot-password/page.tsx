@@ -16,7 +16,8 @@ import {
   ArrowLeft
 } from "lucide-react"
 import Link from "next/link"
-import { createClient } from "@/utils/supabase/client"
+import { auth } from "@/utils/firebase/config"
+import { sendPasswordResetEmail } from "firebase/auth"
 
 // 1. Validation Schema
 const forgotPasswordSchema = z.object({
@@ -26,8 +27,6 @@ const forgotPasswordSchema = z.object({
 type ForgotPasswordValues = z.infer<typeof forgotPasswordSchema>
 
 export default function ForgotPasswordPage() {
-  const supabase = createClient()
-  
   const [isLoading, setIsLoading] = useState(false)
   const [isSuccess, setIsSuccess] = useState(false)
   const [submitError, setSubmitError] = useState<string | null>(null)
@@ -50,13 +49,9 @@ export default function ForgotPasswordPage() {
     setSubmitError(null)
     
     try {
-      const { error } = await supabase.auth.resetPasswordForEmail(data.email, {
-        redirectTo: `${window.location.origin}/auth/callback?next=/reset-password`,
+      await sendPasswordResetEmail(auth, data.email, {
+        url: `${window.location.origin}/login`,
       })
-
-      if (error) {
-        throw new Error(error.message)
-      }
 
       setIsSuccess(true)
 

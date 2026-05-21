@@ -9,6 +9,7 @@ class User(Base):
     __tablename__ = "users"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    firebase_uid = Column(String(128), unique=True, nullable=True, index=True)
     email = Column(String(255), unique=True, nullable=False, index=True)
     hashed_password = Column(String(255), nullable=False)
     role = Column(String(50), default="user")
@@ -24,6 +25,17 @@ class User(Base):
         "agent_verbosity": "medium",
         "voice_enabled": False
     }, nullable=True)
+    
+    # Extended Profile Fields
+    phone_number = Column(String(50), nullable=True)
+    dob = Column(DateTime(timezone=True), nullable=True)
+    company = Column(String(255), nullable=True)
+    role_title = Column(String(255), nullable=True)
+    social_profiles = Column(JSONB, default=dict, nullable=True)
+    interests = Column(JSONB, default=list, nullable=True)
+    hobbies = Column(JSONB, default=list, nullable=True)
+    public_profile_url = Column(String(255), unique=True, index=True, nullable=True)
+    
     onboarding_completed = Column(Boolean, default=False, nullable=False)
     timezone = Column(String(100), default="UTC", nullable=False)
     created_at = Column(DateTime(timezone=True), default=datetime.utcnow)
@@ -37,6 +49,18 @@ class User(Base):
     notifications = relationship("Notification", back_populates="user", cascade="all, delete-orphan")
     subscription = relationship("Subscription", back_populates="user", cascade="all, delete-orphan", uselist=False)
     activity_logs = relationship("ActivityLog", back_populates="user")
+    workspaces = relationship("Workspace", back_populates="owner", cascade="all, delete-orphan")
+
+class Workspace(Base):
+    __tablename__ = "workspaces"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    name = Column(String(255), nullable=False)
+    owner_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    created_at = Column(DateTime(timezone=True), default=datetime.utcnow)
+    updated_at = Column(DateTime(timezone=True), default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    owner = relationship("User", back_populates="workspaces")
 
 class Session(Base):
     __tablename__ = "sessions"

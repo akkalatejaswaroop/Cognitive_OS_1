@@ -30,6 +30,14 @@ export interface UserProfile {
   preferences: UserPreferences;
   cognitive_preferences: CognitivePreferences;
   onboarding_completed: boolean;
+  phone_number?: string;
+  dob?: string;
+  company?: string;
+  role_title?: string;
+  social_profiles?: { instagram?: string; linkedin?: string; [key: string]: string | undefined };
+  interests?: string[];
+  hobbies?: string[];
+  public_profile_url?: string;
 }
 
 export interface UserUpdatePayload {
@@ -39,4 +47,12 @@ export interface UserUpdatePayload {
   timezone?: string;
   preferences?: Partial<UserPreferences>;
   cognitive_preferences?: Partial<CognitivePreferences>;
+  phone_number?: string;
+  dob?: string;
+  company?: string;
+  role_title?: string;
+  social_profiles?: { instagram?: string; linkedin?: string; [key: string]: string | undefined };
+  interests?: string[];
+  hobbies?: string[];
+  public_profile_url?: string;
 }

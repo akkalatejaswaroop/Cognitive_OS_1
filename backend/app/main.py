@@ -2,7 +2,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
-from app.api.routes import auth, memory, agent
+from app.api.routes import auth, memory, agent, workspaces
 from app.api.websockets import router as ws_router
 from app.orchestration.bus import event_bus
 from app.services.llm import OllamaService
@@ -95,10 +95,11 @@ app.add_middleware(
 # ------------------------------------------------------------------ #
 #  Routers                                                            #
 # ------------------------------------------------------------------ #
-app.include_router(auth.router,   prefix=f"{settings.API_V1_STR}/auth",   tags=["Authentication"])
-app.include_router(agent.router,  prefix=f"{settings.API_V1_STR}/agent",  tags=["Agent Orchestration"])
-app.include_router(memory.router, prefix=f"{settings.API_V1_STR}/memory", tags=["Memory & Vector Search"])
-app.include_router(ws_router,     prefix=f"{settings.API_V1_STR}/ws",     tags=["WebSockets"])
+app.include_router(auth.router,        prefix=f"{settings.API_V1_STR}/auth",       tags=["Authentication"])
+app.include_router(agent.router,       prefix=f"{settings.API_V1_STR}/agent",      tags=["Agent Orchestration"])
+app.include_router(memory.router,      prefix=f"{settings.API_V1_STR}/memory",     tags=["Memory & Vector Search"])
+app.include_router(ws_router,          prefix=f"{settings.API_V1_STR}/ws",         tags=["WebSockets"])
+app.include_router(workspaces.router,  prefix=f"{settings.API_V1_STR}/workspaces", tags=["Workspaces"])
 
 
 # ------------------------------------------------------------------ #

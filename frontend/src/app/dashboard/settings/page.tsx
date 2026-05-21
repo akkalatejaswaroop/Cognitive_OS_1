@@ -84,7 +84,7 @@ export default function SettingsPage() {
       }
 
       // Initialize preferences
-      const prefs = user.preferences || {};
+      const prefs: any = user.preferences || {};
       setTone(prefs.tone || "editorial");
       setCreativity(prefs.creativity !== undefined ? prefs.creativity : 0.7);
       setModel(prefs.model || "gemini-3.1-pro");
@@ -124,7 +124,7 @@ export default function SettingsPage() {
       const res = await apiClient("/api/v1/auth/profile", {
         method: "PATCH",
         body: JSON.stringify(payload),
-      });
+      }) as Response;
 
       if (res.ok) {
         setSaveStatus("success");

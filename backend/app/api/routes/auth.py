@@ -203,14 +203,94 @@ def logout(response: Response, request: Request, db: Session = Depends(get_db)):
     response.delete_cookie("refresh_token", path="/")
     return {"message": "Logged out successfully"}
 
-from app.schemas.user import UserUpdate, UserProfileResponse
+from app.schemas.user import UserUpdate, UserProfileResponse, PublicProfileResponse
 from fastapi import UploadFile, File
 import shutil
 import os
 
 @router.get("/me", response_model=UserProfileResponse)
-def get_me(current_user: User = Depends(get_current_user)):
-    return current_user
+def get_me(request: Request, db: Session = Depends(get_db)):
+    # Custom implementation of get_current_user logic to handle auto-provisioning
+    token = request.cookies.get("access_token")
+    if token and token.startswith("Bearer "):
+        token = token[7:]
+    
+    if not token:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
+    # Try standard validation first
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Could not validate credentials",
+    )
+    
+    payload = None
+    user_id = None
+    firebase_uid = None
+    is_firebase = False
+    
+    try:
+        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+        user_id = payload.get("sub")
+        if payload.get("type") != "access":
+            payload = None
+    except JWTError:
+        pass
+        
+    if payload is None:
+        try:
+            import firebase_admin.auth
+            decoded_token = firebase_admin.auth.verify_id_token(token)
+            firebase_uid = decoded_token.get("uid")
+            payload = decoded_token
+            is_firebase = True
+        except Exception:
+            payload = None
+
+    if not payload or (not user_id and not firebase_uid):
+        raise credentials_exception
+        
+    user = None
+    if user_id:
+        try:
+            uuid_user_id = uuid.UUID(user_id)
+            user = db.query(User).filter(User.id == uuid_user_id).first()
+        except Exception:
+            raise credentials_exception
+    else:
+        user = db.query(User).filter(User.firebase_uid == firebase_uid).first()
+    
+    # Auto-provision user if they are valid in Firebase but missing locally
+    if not user and is_firebase:
+        email = payload.get("email")
+        if not email:
+            raise credentials_exception
+            
+        # Check if user with this email already exists
+        user = db.query(User).filter(User.email == email).first()
+        
+        if not user:
+            # Create new user
+            user = User(
+                firebase_uid=firebase_uid,
+                email=email,
+                hashed_password=get_password_hash(uuid.uuid4().hex),
+                role="user",
+                name=payload.get("name") or email.split("@")[0]
+            )
+            db.add(user)
+            db.commit()
+            db.refresh(user)
+        else:
+            # User exists, link Firebase UID
+            user.firebase_uid = firebase_uid
+            db.commit()
+            db.refresh(user)
+
+    if user is None or not user.is_active:
+        raise credentials_exception
+
+    return UserProfileResponse.model_validate(user)
 
 @router.patch("/profile", response_model=UserProfileResponse)
 def update_profile(
@@ -218,33 +298,35 @@ def update_profile(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    update_data = profile_in.dict(exclude_unset=True)
-    
-    if "preferences" in update_data:
-        if current_user.preferences is None:
-            current_user.preferences = {}
-        # Merge preferences
-        new_prefs = dict(current_user.preferences)
-        new_prefs.update(update_data["preferences"])
-        current_user.preferences = new_prefs
-        del update_data["preferences"]
-        
-    if "cognitive_preferences" in update_data:
-        if current_user.cognitive_preferences is None:
-            current_user.cognitive_preferences = {}
-        # Merge cognitive preferences
-        new_cog_prefs = dict(current_user.cognitive_preferences)
-        new_cog_prefs.update(update_data["cognitive_preferences"])
-        current_user.cognitive_preferences = new_cog_prefs
-        del update_data["cognitive_preferences"]
+    update_data = profile_in.model_dump(exclude_unset=True)
 
-    # Update other fields
+    # Deep-merge JSONB preferences
+    if "preferences" in update_data:
+        existing = dict(current_user.preferences or {})
+        incoming = update_data.pop("preferences") or {}
+        if isinstance(incoming, dict):
+            existing.update(incoming)
+        current_user.preferences = existing
+
+    # Deep-merge JSONB cognitive_preferences
+    if "cognitive_preferences" in update_data:
+        existing_cog = dict(current_user.cognitive_preferences or {})
+        incoming_cog = update_data.pop("cognitive_preferences") or {}
+        if isinstance(incoming_cog, dict):
+            existing_cog.update(incoming_cog)
+        current_user.cognitive_preferences = existing_cog
+
+    # Handle dob string → store as-is (DateTime column will coerce)
+    if "dob" in update_data and update_data["dob"] == "":
+        update_data["dob"] = None
+
+    # Update other scalar fields
     for field, value in update_data.items():
         setattr(current_user, field, value)
-        
+
     db.commit()
     db.refresh(current_user)
-    return current_user
+    return UserProfileResponse.model_validate(current_user)
 
 @router.post("/avatar", response_model=UserProfileResponse)
 async def upload_avatar(
@@ -270,4 +352,12 @@ async def upload_avatar(
     current_user.avatar_url = f"/static/avatars/{file_name}"
     db.commit()
     db.refresh(current_user)
-    return current_user
+    return UserProfileResponse.model_validate(current_user)
+
+@router.get("/public/{username}", response_model=PublicProfileResponse)
+def get_public_profile(username: str, db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.public_profile_url == username).first()
+    if not user or not user.is_active:
+        raise HTTPException(status_code=404, detail="Profile not found")
+    return PublicProfileResponse.model_validate(user)
+

@@ -43,7 +43,7 @@ export function AIChatInterface() {
       const res = await apiClient("/api/v1/agent/execute", {
         method: "POST",
         body: JSON.stringify({ task: userMessage }),
-      });
+      }) as Response;
 
       const data = await res.json();
 

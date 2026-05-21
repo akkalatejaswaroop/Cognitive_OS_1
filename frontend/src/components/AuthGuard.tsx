@@ -22,7 +22,8 @@ export function AuthGuard({ children, allowedRoles }: AuthGuardProps) {
       if (!user) {
         router.push("/login?error=Please sign in to view this section")
       } else if (allowedRoles && allowedRoles.length > 0) {
-        const userRole = user.user_metadata?.role || "user"
+        // Use the role field on our AuthUser type
+        const userRole = user.role || "user"
         if (!allowedRoles.includes(userRole)) {
           router.push("/dashboard?error=Access denied. Higher authority clearance required.")
         }
@@ -45,7 +46,7 @@ export function AuthGuard({ children, allowedRoles }: AuthGuardProps) {
   if (!user) return null
 
   if (allowedRoles && allowedRoles.length > 0) {
-    const userRole = user.user_metadata?.role || "user"
+    const userRole = user.role || "user"
     if (!allowedRoles.includes(userRole)) {
       return null
     }

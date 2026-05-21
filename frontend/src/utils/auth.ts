@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation'
-import { createClient } from './supabase/server'
+import { cookies } from 'next/headers'
 
 export interface AuthUser {
   id: string
@@ -8,19 +8,27 @@ export interface AuthUser {
 }
 
 /**
- * Gets the current authenticated session user and extracts metadata claims.
+ * Gets the current authenticated session user by decoding the JWT cookie.
  */
 export async function getSessionUser(): Promise<AuthUser | null> {
   try {
-    const supabase = await createClient()
-    const { data: { user }, error } = await supabase.auth.getUser()
+    const cookieStore = await cookies()
+    const tokenStr = cookieStore.get('access_token')?.value
     
-    if (error || !user) return null
-
+    if (!tokenStr) return null
+    
+    // token format is typically "Bearer eyJhbGci..."
+    const token = tokenStr.replace('Bearer ', '')
+    const base64Url = token.split('.')[1]
+    if (!base64Url) return null
+    
+    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/')
+    const payload = JSON.parse(Buffer.from(base64, 'base64').toString('utf8'))
+    
     return {
-      id: user.id,
-      email: user.email,
-      role: user.user_metadata?.role || 'user'
+      id: payload.user_id || payload.sub,
+      email: payload.email,
+      role: payload.role || 'user'
     }
   } catch {
     return null

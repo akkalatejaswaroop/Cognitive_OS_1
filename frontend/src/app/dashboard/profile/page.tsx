@@ -18,6 +18,17 @@ import { cn } from '@/lib/utils'
 const profileSchema = z.object({
   full_name: z.string().min(2, "Full name must be at least 2 characters"),
   name: z.string().min(2, "Display name must be at least 2 characters"),
+  phone_number: z.string().optional(),
+  dob: z.string().optional(),
+  company: z.string().optional(),
+  role_title: z.string().optional(),
+  public_profile_url: z.string().regex(/^[a-zA-Z0-9_-]*$/, "Only letters, numbers, dashes, and underscores").optional(),
+  social_profiles: z.object({
+    instagram: z.string().optional(),
+    linkedin: z.string().optional(),
+  }).optional(),
+  interests_str: z.string().optional(),
+  hobbies_str: z.string().optional(),
   timezone: z.string(),
   cognitive_preferences: z.object({
     default_model: z.string(),
@@ -45,6 +56,7 @@ export default function ProfilePage() {
   const [isUploading, setIsUploading] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error', message: string } | null>(null)
+  const isOnboarding = user && !user.onboarding_completed
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const {
@@ -60,24 +72,66 @@ export default function ProfilePage() {
 
   useEffect(() => {
     if (user) {
+      // Derive display name from email if name is missing
+      const derivedName = user.name || user.email?.split('@')[0] || '';
+      
       reset({
         full_name: user.full_name || '',
-        name: user.name || '',
+        name: derivedName,
+        phone_number: user.phone_number || '',
+        dob: user.dob ? user.dob.split('T')[0] : '',
+        company: user.company || '',
+        role_title: user.role_title || '',
+        public_profile_url: user.public_profile_url || '',
+        social_profiles: {
+          instagram: user.social_profiles?.instagram || '',
+          linkedin: user.social_profiles?.linkedin || '',
+        },
+        interests_str: user.interests?.join(', ') || '',
+        hobbies_str: user.hobbies?.join(', ') || '',
         timezone: user.timezone || 'UTC',
-        cognitive_preferences: user.cognitive_preferences,
-        preferences: user.preferences,
+        cognitive_preferences: user.cognitive_preferences || {
+          default_model: 'llama3.2',
+          temperature: 0.7,
+          agent_verbosity: 'medium',
+          voice_enabled: false
+        },
+        preferences: user.preferences || {
+          theme: 'system',
+          density: 'default',
+          notifications: {
+            email_digests: true,
+            security_alerts: true,
+            system_updates: true,
+            in_app_notifications: true
+          }
+        },
       })
     }
   }, [user, reset])
+
+  const isSocialLogin = user?.app_metadata?.provider === 'google' || user?.app_metadata?.provider === 'github'
 
   const onSubmit = async (data: ProfileFormValues) => {
     setIsSaving(true)
     setFeedback(null)
     
     try {
-      const res = await apiClient('/api/v1/auth/profile', {
+      const interests = data.interests_str ? data.interests_str.split(',').map(s => s.trim()).filter(Boolean) : []
+      const hobbies = data.hobbies_str ? data.hobbies_str.split(',').map(s => s.trim()).filter(Boolean) : []
+      
+      const payload: any = {
+        ...data,
+        interests,
+        hobbies,
+        onboarding_completed: true // saving profile marks onboarding as complete
+      }
+      delete payload.interests_str
+      delete payload.hobbies_str
+
+      const res: any = await apiClient('/api/v1/auth/profile', {
         method: 'PATCH',
-        body: JSON.stringify(data),
+        body: JSON.stringify(payload),
       })
 
       if (!res.ok) throw new Error('Failed to update profile')
@@ -104,11 +158,7 @@ export default function ProfilePage() {
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_ENDPOINT || 'http://localhost:8000'}/api/v1/auth/avatar`, {
         method: 'POST',
         body: formData,
-        // The apiClient handles credentials, but for multipart we might need to be careful
-        // Usually browser handles multipart boundaries
-        headers: {
-          // 'Content-Type': 'multipart/form-data' // Don't set this manually
-        }
+        credentials: 'include', // Required to send auth cookie
       })
 
       if (!res.ok) throw new Error('Failed to upload avatar')
@@ -169,11 +219,11 @@ export default function ProfilePage() {
         
         <button
           onClick={handleSubmit(onSubmit)}
-          disabled={isSaving || !isDirty}
+          disabled={isSaving || (!isDirty && !isOnboarding)}
           className="flex items-center gap-2 px-6 py-3 bg-primary text-primary-foreground rounded-xl font-semibold shadow-lg shadow-primary/20 hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
         >
           {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-          Save Changes
+          {isOnboarding ? 'Complete Profile & Continue' : 'Save Changes'}
         </button>
       </div>
 
@@ -236,20 +286,133 @@ export default function ProfilePage() {
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="space-y-2">
-                    <label className="text-xs font-bold uppercase text-muted-foreground tracking-wider">Full Legal Name</label>
+                    <label className="text-xs font-bold uppercase text-muted-foreground tracking-wider">Full Legal Name *</label>
                     <input 
                       {...register('full_name')}
-                      className="w-full bg-muted/50 border border-border rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-primary/20 outline-none transition-all"
+                      disabled={isSocialLogin}
+                      className={cn(
+                        "w-full border border-border rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-primary/20 outline-none transition-all",
+                        isSocialLogin ? "bg-muted text-muted-foreground cursor-not-allowed" : "bg-muted/50"
+                      )}
                     />
                     {errors.full_name && <p className="text-xs text-destructive">{errors.full_name.message}</p>}
                   </div>
                   <div className="space-y-2">
-                    <label className="text-xs font-bold uppercase text-muted-foreground tracking-wider">Display Pseudonym</label>
+                    <label className="text-xs font-bold uppercase text-muted-foreground tracking-wider">Display Pseudonym *</label>
                     <input 
                       {...register('name')}
-                      className="w-full bg-muted/50 border border-border rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-primary/20 outline-none transition-all"
+                      disabled={isSocialLogin}
+                      className={cn(
+                        "w-full border border-border rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-primary/20 outline-none transition-all",
+                        isSocialLogin ? "bg-muted text-muted-foreground cursor-not-allowed" : "bg-muted/50"
+                      )}
                     />
                     {errors.name && <p className="text-xs text-destructive">{errors.name.message}</p>}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4">
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold uppercase text-muted-foreground tracking-wider flex items-center gap-2">
+                      <Globe className="w-3.5 h-3.5" />
+                      Public Profile Alias
+                    </label>
+                    <div className="flex bg-muted/50 border border-border rounded-xl focus-within:ring-2 focus-within:ring-primary/20 transition-all overflow-hidden">
+                      <span className="bg-muted px-3 py-3 text-sm text-muted-foreground border-r border-border">/u/</span>
+                      <input 
+                        {...register('public_profile_url')}
+                        placeholder="username"
+                        className="w-full bg-transparent px-4 py-3 text-sm outline-none"
+                      />
+                    </div>
+                    {errors.public_profile_url && <p className="text-xs text-destructive">{errors.public_profile_url.message}</p>}
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold uppercase text-muted-foreground tracking-wider flex items-center gap-2">
+                      <Mail className="w-3.5 h-3.5" />
+                      Recovery Email
+                    </label>
+                    <input 
+                      value={user.email} 
+                      disabled 
+                      className="w-full bg-muted border border-border rounded-xl px-4 py-3 text-sm text-muted-foreground cursor-not-allowed" 
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4 border-t border-border">
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold uppercase text-muted-foreground tracking-wider">Phone Number</label>
+                    <input 
+                      {...register('phone_number')}
+                      placeholder="+1 (555) 000-0000"
+                      className="w-full bg-muted/50 border border-border rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-primary/20 outline-none transition-all"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold uppercase text-muted-foreground tracking-wider">Date of Birth</label>
+                    <input 
+                      type="date"
+                      {...register('dob')}
+                      className="w-full bg-muted/50 border border-border rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-primary/20 outline-none transition-all"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4 border-t border-border">
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold uppercase text-muted-foreground tracking-wider">Company</label>
+                    <input 
+                      {...register('company')}
+                      placeholder="e.g. Acme Corp"
+                      className="w-full bg-muted/50 border border-border rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-primary/20 outline-none transition-all"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold uppercase text-muted-foreground tracking-wider">Working Role</label>
+                    <input 
+                      {...register('role_title')}
+                      placeholder="e.g. Senior Designer"
+                      className="w-full bg-muted/50 border border-border rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-primary/20 outline-none transition-all"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4 border-t border-border">
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold uppercase text-muted-foreground tracking-wider">Instagram URL</label>
+                    <input 
+                      {...register('social_profiles.instagram')}
+                      placeholder="https://instagram.com/username"
+                      className="w-full bg-muted/50 border border-border rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-primary/20 outline-none transition-all"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold uppercase text-muted-foreground tracking-wider">LinkedIn URL</label>
+                    <input 
+                      {...register('social_profiles.linkedin')}
+                      placeholder="https://linkedin.com/in/username"
+                      className="w-full bg-muted/50 border border-border rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-primary/20 outline-none transition-all"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-4 pt-4 border-t border-border">
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold uppercase text-muted-foreground tracking-wider">Interests (comma separated)</label>
+                    <input 
+                      {...register('interests_str')}
+                      placeholder="e.g. Design, AI, Architecture"
+                      className="w-full bg-muted/50 border border-border rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-primary/20 outline-none transition-all"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold uppercase text-muted-foreground tracking-wider">Hobbies (comma separated)</label>
+                    <input 
+                      {...register('hobbies_str')}
+                      placeholder="e.g. Photography, Reading, Hiking"
+                      className="w-full bg-muted/50 border border-border rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-primary/20 outline-none transition-all"
+                    />
                   </div>
                 </div>
 
@@ -263,21 +426,10 @@ export default function ProfilePage() {
                       {...register('timezone')}
                       className="w-full bg-muted/50 border border-border rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-primary/20 outline-none transition-all"
                     >
-                      {['UTC', 'America/New_York', 'Europe/London', 'Asia/Tokyo', 'Australia/Sydney'].map(tz => (
+                      {['UTC', 'America/New_York', 'America/Chicago', 'America/Los_Angeles', 'Europe/London', 'Europe/Paris', 'Asia/Dubai', 'Asia/Kolkata', 'Asia/Tokyo', 'Australia/Sydney'].map(tz => (
                         <option key={tz} value={tz}>{tz}</option>
                       ))}
                     </select>
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-xs font-bold uppercase text-muted-foreground tracking-wider flex items-center gap-2">
-                      <Mail className="w-3.5 h-3.5" />
-                      Recovery Email
-                    </label>
-                    <input 
-                      value={user.email} 
-                      disabled 
-                      className="w-full bg-muted border border-border rounded-xl px-4 py-3 text-sm text-muted-foreground cursor-not-allowed" 
-                    />
                   </div>
                 </div>
               </div>

@@ -42,7 +42,7 @@ type SignupFormValues = z.infer<typeof signupSchema>
 
 export default function SignupPage() {
   const router = useRouter()
-  const { signUp } = useAuth()
+  const { signUp, signInWithGoogle } = useAuth()
   
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
@@ -103,16 +103,7 @@ export default function SignupPage() {
     setSubmitError(null)
     
     try {
-      const { error } = await signUp({
-        email: data.email,
-        password: data.password,
-        options: {
-          data: {
-            full_name: data.fullName,
-          },
-          emailRedirectTo: `${window.location.origin}/auth/callback`,
-        }
-      })
+      const { error } = await signUp(data.email, data.password)
 
       if (error) {
         throw new Error(error.message)
@@ -125,6 +116,29 @@ export default function SignupPage() {
 
     } catch (err: any) {
       setSubmitError(err.message || "An unexpected error occurred. Please try again.")
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleGoogleSignUp = async () => {
+    setIsLoading(true)
+    setSubmitError(null)
+    
+    try {
+      const { error } = await signInWithGoogle()
+
+      if (error) {
+        throw new Error(error.message)
+      }
+
+      setIsSuccess(true)
+      setTimeout(() => {
+        router.push("/dashboard")
+      }, 2000)
+
+    } catch (err: any) {
+      setSubmitError(err.message || "Google sign up failed.")
     } finally {
       setIsLoading(false)
     }
@@ -395,10 +409,12 @@ export default function SignupPage() {
               </div>
 
               {/* Social Login Button Group */}
-              <div className="grid grid-cols-2 gap-3.5">
+              <div className="flex justify-center gap-3.5">
                 <button
                   type="button"
-                  className="py-3 border border-border/60 hover:border-border rounded-2xl hover:bg-muted/15 transition-all flex items-center justify-center gap-2.5 text-xs font-semibold text-foreground duration-300 cursor-pointer"
+                  onClick={handleGoogleSignUp}
+                  disabled={isLoading}
+                  className="w-full max-w-[200px] py-3 border border-border/60 hover:border-border rounded-2xl hover:bg-muted/15 transition-all flex items-center justify-center gap-2.5 text-xs font-semibold text-foreground duration-300 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <svg className="w-4 h-4" viewBox="0 0 24 24">
                     <path
@@ -419,15 +435,6 @@ export default function SignupPage() {
                     />
                   </svg>
                   <span>Google</span>
-                </button>
-                <button
-                  type="button"
-                  className="py-3 border border-border/60 hover:border-border rounded-2xl hover:bg-muted/15 transition-all flex items-center justify-center gap-2.5 text-xs font-semibold text-foreground duration-300 cursor-pointer"
-                >
-                  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
-                    <path fillRule="evenodd" clipRule="evenodd" d="M12 2C6.477 2 2 6.477 2 12c0 4.42 2.87 8.17 6.84 9.5.5.08.66-.23.66-.5v-1.69c-2.77.6-3.36-1.34-3.36-1.34-.46-1.16-1.11-1.47-1.11-1.47-.9-.62.07-.6.07-.6 1 .07 1.53 1.03 1.53 1.03.9 1.52 2.34 1.07 2.91.83.09-.65.35-1.09.63-1.34-2.22-.25-4.55-1.11-4.55-4.92 0-1.11.38-2 1.03-2.71-.1-.25-.45-1.29.1-2.64 0 0 .84-.27 2.75 1.02.79-.22 1.65-.33 2.5-.33.85 0 1.71.11 2.5.33 1.91-1.29 2.75-1.02 2.75-1.02.55 1.35.2 2.39.1 2.64.65.71 1.03 1.6 1.03 2.71 0 3.82-2.34 4.66-4.57 4.91.36.31.69.92.69 1.85V21c0 .27.16.59.67.5C19.14 20.16 22 16.42 22 12A10 10 0 0012 2z" />
-                  </svg>
-                  <span>GitHub</span>
                 </button>
               </div>
             </>

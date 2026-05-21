@@ -1,29 +1,36 @@
 'use client'
 
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react'
-import { createClient } from '@/utils/supabase/client'
-import type { User, Session, SignInWithPasswordCredentials, SignUpWithPasswordCredentials, AuthError } from '@supabase/supabase-js'
+import { auth } from '@/utils/firebase/config'
+import { 
+  User as FirebaseUser, 
+  signInWithEmailAndPassword, 
+  createUserWithEmailAndPassword, 
+  signOut as firebaseSignOut,
+  onAuthStateChanged,
+  GoogleAuthProvider,
+  signInWithPopup
+} from 'firebase/auth'
 import { useRouter } from 'next/navigation'
 
 /**
  * Enhanced User type that includes role-based information
  */
-export interface AuthUser extends User {
+export interface AuthUser extends FirebaseUser {
   role: string;
 }
 
 interface AuthContextType {
   user: AuthUser | null;
-  session: Session | null;
   isAuthenticated: boolean;
   isLoading: boolean;
   error: string | null;
   
   // Auth methods
-  signIn: (credentials: SignInWithPasswordCredentials) => Promise<{ error: AuthError | null }>;
-  signUp: (credentials: SignUpWithPasswordCredentials) => Promise<{ error: AuthError | null }>;
+  signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
+  signUp: (email: string, password: string) => Promise<{ error: Error | null }>;
+  signInWithGoogle: () => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
-  refreshSession: () => Promise<{ session: Session | null; error: AuthError | null }>;
   
   // Utilities
   clearError: () => void;
@@ -33,128 +40,63 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const supabase = createClient()
   const router = useRouter()
   
   const [user, setUser] = useState<AuthUser | null>(null)
-  const [session, setSession] = useState<Session | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   /**
-   * Helper to format Supabase user to our AuthUser type
+   * Helper to format Firebase user to our AuthUser type
    */
-  const formatUser = useCallback((supabaseUser: User | null): AuthUser | null => {
-    if (!supabaseUser) return null;
+  const formatUser = useCallback((firebaseUser: FirebaseUser | null): AuthUser | null => {
+    if (!firebaseUser) return null;
     
+    // In a real app, you would fetch custom claims or role from Firestore/Backend
     return {
-      ...supabaseUser,
-      role: supabaseUser.user_metadata?.role || 'user'
+      ...firebaseUser,
+      role: 'user'
     } as AuthUser;
   }, []);
 
-  /**
-   * Initialize session and set up refresh timers
-   */
   useEffect(() => {
-    let mounted = true
-    let refreshTimer: NodeJS.Timeout
-
-    async function initSession() {
-      try {
-        const { data: { session: initialSession }, error: sessionError } = await supabase.auth.getSession()
+    let mounted = true;
+    
+    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+      if (mounted) {
+        setUser(formatUser(currentUser));
+        setIsLoading(false);
         
-        if (sessionError) throw sessionError
-
-        if (mounted) {
-          setSession(initialSession)
-          setUser(formatUser(initialSession?.user ?? null))
-          
-          // Setup background refresh if session exists
-          if (initialSession) {
-            setupRefreshTimer(initialSession)
-          }
-        }
-      } catch (err: any) {
-        if (mounted) {
-          setError(err.message || 'Failed to initialize session')
-        }
-      } finally {
-        if (mounted) {
-          setIsLoading(false)
+        // Sync token with backend if necessary by calling your API
+        if (currentUser) {
+          const token = await currentUser.getIdToken();
+          // You can set cookie here or let the frontend pass the token in headers
+          document.cookie = `access_token=Bearer ${token}; path=/; max-age=3600; SameSite=Lax`;
+        } else {
+          document.cookie = `access_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT`;
         }
       }
-    }
-
-    function setupRefreshTimer(currentSession: Session) {
-      if (refreshTimer) clearTimeout(refreshTimer)
-      
-      // Refresh 5 minutes before expiry
-      const expiresAt = currentSession.expires_at! * 1000
-      const timeout = expiresAt - Date.now() - (5 * 60 * 1000)
-      
-      if (timeout > 0) {
-        refreshTimer = setTimeout(async () => {
-          const { session: newSession } = await refreshSession()
-          if (newSession && mounted) {
-            setupRefreshTimer(newSession)
-          }
-        }, timeout)
-      }
-    }
-
-    initSession()
-
-    /**
-     * Listen for auth state changes
-     */
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, currentSession) => {
-        if (mounted) {
-          setSession(currentSession)
-          setUser(formatUser(currentSession?.user ?? null))
-          setIsLoading(false)
-          
-          if (currentSession) {
-            setupRefreshTimer(currentSession)
-          }
-
-          if (event === 'SIGNED_IN') {
-            router.refresh()
-          }
-          
-          if (event === 'SIGNED_OUT') {
-            if (refreshTimer) clearTimeout(refreshTimer)
-            router.push('/login')
-            router.refresh()
-          }
-        }
-      }
-    )
+    });
 
     return () => {
-      mounted = false
-      if (refreshTimer) clearTimeout(refreshTimer)
-      subscription.unsubscribe()
+      mounted = false;
+      unsubscribe();
     }
-  }, [supabase, router, formatUser])
+  }, [formatUser]);
 
   /**
    * Sign in with email and password
    */
-  const signIn = async (credentials: SignInWithPasswordCredentials) => {
+  const signIn = async (email: any, password: any) => {
     setError(null)
     setIsLoading(true)
     try {
-      const response = await supabase.auth.signInWithPassword(credentials)
-      if (response.error) {
-        setError(response.error.message)
-      }
-      return { error: response.error }
+      await signInWithEmailAndPassword(auth, email, password)
+      return { error: null }
     } catch (err: any) {
       const errMsg = err.message || 'An unexpected error occurred during login'
       setError(errMsg)
-      return { error: { message: errMsg } as AuthError }
+      return { error: new Error(errMsg) }
     } finally {
       setIsLoading(false)
     }
@@ -163,19 +105,35 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   /**
    * Sign up with email and password
    */
-  const signUp = async (credentials: SignUpWithPasswordCredentials) => {
+  const signUp = async (email: any, password: any) => {
     setError(null)
     setIsLoading(true)
     try {
-      const response = await supabase.auth.signUp(credentials)
-      if (response.error) {
-        setError(response.error.message)
-      }
-      return { error: response.error }
+      await createUserWithEmailAndPassword(auth, email, password)
+      return { error: null }
     } catch (err: any) {
       const errMsg = err.message || 'An unexpected error occurred during signup'
       setError(errMsg)
-      return { error: { message: errMsg } as AuthError }
+      return { error: new Error(errMsg) }
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  /**
+   * Sign in with Google
+   */
+  const signInWithGoogle = async () => {
+    setError(null)
+    setIsLoading(true)
+    try {
+      const provider = new GoogleAuthProvider()
+      await signInWithPopup(auth, provider)
+      return { error: null }
+    } catch (err: any) {
+      const errMsg = err.message || 'Failed to sign in with Google'
+      setError(errMsg)
+      return { error: new Error(errMsg) }
     } finally {
       setIsLoading(false)
     }
@@ -188,37 +146,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setError(null)
     setIsLoading(true)
     try {
-      const { error: signOutError } = await supabase.auth.signOut()
-      if (signOutError) throw signOutError
-      
+      await firebaseSignOut(auth)
       setUser(null)
-      setSession(null)
       router.push('/login')
     } catch (err: any) {
       setError(err.message || 'Failed to sign out')
     } finally {
       setIsLoading(false)
-    }
-  }
-
-  /**
-   * Manually refresh the session
-   */
-  const refreshSession = async () => {
-    setError(null)
-    try {
-      const response = await supabase.auth.refreshSession()
-      if (response.error) {
-        setError(response.error.message)
-      } else {
-        setSession(response.data.session)
-        setUser(formatUser(response.data.session?.user ?? null))
-      }
-      return { session: response.data.session, error: response.error }
-    } catch (err: any) {
-      const errMsg = err.message || 'Failed to refresh session'
-      setError(errMsg)
-      return { session: null, error: { message: errMsg } as AuthError }
     }
   }
 
@@ -235,14 +169,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const value = {
     user,
-    session,
     isAuthenticated: !!user,
     isLoading,
     error,
     signIn,
     signUp,
+    signInWithGoogle,
     signOut,
-    refreshSession,
     clearError,
     hasRole
   }

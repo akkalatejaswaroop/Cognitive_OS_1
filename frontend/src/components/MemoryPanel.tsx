@@ -34,7 +34,7 @@ export function MemoryPanel() {
           query: queryText || "cognitive systems",
           n_results: 5,
         }),
-      });
+      }) as Response;
 
       if (!res.ok) {
         throw new Error("Failed to query knowledge vault");

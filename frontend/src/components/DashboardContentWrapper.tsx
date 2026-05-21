@@ -1,9 +1,11 @@
 "use client";
 
 import { useSidebarStore } from "@/store/useSidebarStore";
+import { useAuthStore } from "@/store/authStore";
 import { useBreakpoint } from "@/lib/hooks/useBreakpoint";
 import { cn } from "@/lib/utils";
 import { useEffect } from "react";
+import { usePathname, useRouter } from "next/navigation";
 
 export function DashboardContentWrapper({
   children,
@@ -12,6 +14,9 @@ export function DashboardContentWrapper({
 }) {
   const { isOpen, setSidebarOpen } = useSidebarStore();
   const { isMobileOrTablet } = useBreakpoint();
+  const { user } = useAuthStore();
+  const pathname = usePathname();
+  const router = useRouter();
 
   // Auto-collapse sidebar on tablet/mobile screens
   useEffect(() => {
@@ -19,6 +24,15 @@ export function DashboardContentWrapper({
       setSidebarOpen(false);
     }
   }, [isMobileOrTablet, setSidebarOpen]);
+
+  // Onboarding guard
+  useEffect(() => {
+    if (user && !user.onboarding_completed) {
+      if (pathname !== "/dashboard/profile") {
+        router.push("/dashboard/profile?require_onboarding=true");
+      }
+    }
+  }, [user, pathname, router]);
 
   return (
     <div

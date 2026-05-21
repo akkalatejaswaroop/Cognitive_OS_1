@@ -16,8 +16,11 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
 
+    # Firebase Admin SDK credentials (path to JSON file or JSON string)
+    FIREBASE_SERVICE_ACCOUNT_JSON: str = ""
+
     # Postgres Database (Neon)
-    DATABASE_URL: str = "postgresql://user:password@localhost:5432/cognitive_os"
+    DATABASE_URL: str = "postgresql://neondb_owner:npg_o4ARTSGqsm0W@ep-mute-mountain-ak7nhohq-pooler.c-3.us-west-2.aws.neon.tech/neondb?sslmode=require"
 
     # ChromaDB (vector store)
     VECTORDB_HOST: str = "localhost"

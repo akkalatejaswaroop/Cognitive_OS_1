@@ -1,7 +1,7 @@
 "use client"
 
 import React, { useState } from "react"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
@@ -18,7 +18,8 @@ import {
   EyeOff
 } from "lucide-react"
 import Link from "next/link"
-import { createClient } from "@/utils/supabase/client"
+import { auth } from "@/utils/firebase/config"
+import { confirmPasswordReset } from "firebase/auth"
 
 // 1. Validation Schema
 const resetPasswordSchema = z.object({
@@ -38,7 +39,8 @@ type ResetPasswordValues = z.infer<typeof resetPasswordSchema>
 
 function ResetPasswordForm() {
   const router = useRouter()
-  const supabase = createClient()
+  const searchParams = useSearchParams()
+  const oobCode = searchParams.get('oobCode')
   
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
@@ -97,13 +99,11 @@ function ResetPasswordForm() {
     setSubmitError(null)
     
     try {
-      const { error } = await supabase.auth.updateUser({
-        password: data.password
-      })
-
-      if (error) {
-        throw new Error(error.message)
+      if (!oobCode) {
+        throw new Error("Invalid or missing password reset code.")
       }
+      
+      await confirmPasswordReset(auth, oobCode, data.password)
 
       setIsSuccess(true)
       setTimeout(() => {
