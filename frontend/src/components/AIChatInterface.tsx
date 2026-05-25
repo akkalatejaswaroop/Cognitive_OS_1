@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { Send, Bot, User, Loader2, Sparkles, Terminal, Activity, ArrowRight } from "lucide-react";
+import { Send, Bot, User, Loader2, Sparkles, Terminal } from "lucide-react";
 import { useChatStore } from "@/store";
 import { apiClient } from "@/lib/api";
 import { motion, AnimatePresence } from "framer-motion";
@@ -12,11 +12,22 @@ export function AIChatInterface() {
   const [isLoading, setIsLoading] = useState(false);
   const { messages, addMessage, updateMessage, updateAgentStatus, resetAllAgents } = useChatStore();
   const chatEndRef = useRef<HTMLDivElement>(null);
+  const wsRef = useRef<WebSocket | null>(null);
 
   // Auto-scroll to the bottom of the chat on message updates
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
+
+  // Cleanup WebSocket on unmount
+  useEffect(() => {
+    return () => {
+      if (wsRef.current) {
+        wsRef.current.close();
+        wsRef.current = null;
+      }
+    };
+  }, []);
 
   const handleSend = async () => {
     if (!input.trim() || isLoading) return;
@@ -59,7 +70,11 @@ export function AIChatInterface() {
       const host = apiBaseUrl.replace(/^https?:\/\//, "");
       const wsUrl = `${wsProtocol}://${host}/api/v1/ws/${taskId}`;
       
+      if (wsRef.current) {
+        wsRef.current.close();
+      }
       const socket = new WebSocket(wsUrl);
+      wsRef.current = socket;
 
       socket.onmessage = (event) => {
         try {
@@ -70,18 +85,18 @@ export function AIChatInterface() {
             setIsLoading(false);
             resetAllAgents();
             socket.close();
+            if (wsRef.current === socket) wsRef.current = null;
           } else if (payload.status === "failed") {
             updateMessage(agentMsgId, `🚨 Execution Failed: ${payload.message}`);
             setIsLoading(false);
             resetAllAgents();
             socket.close();
+            if (wsRef.current === socket) wsRef.current = null;
           } else {
-            // Live progress state (e.g. thinking, processing)
             updateMessage(
               agentMsgId, 
               `🤖 [${payload.agent.toUpperCase()}] ${payload.message}`
             );
-            // Dynamically update agent activity panel
             updateAgentStatus(payload.agent, "executing", payload.message);
           }
         } catch (err) {
@@ -100,11 +115,13 @@ export function AIChatInterface() {
       };
 
       socket.onclose = () => {
+        if (wsRef.current === socket) wsRef.current = null;
         setIsLoading(false);
       };
 
-    } catch (err: any) {
-      updateMessage(agentMsgId, `⚠️ System Connection Error: ${err.message}`);
+    } catch (err: unknown) {
+      const error = err as Error;
+      updateMessage(agentMsgId, `⚠️ System Connection Error: ${error.message}`);
       setIsLoading(false);
       resetAllAgents();
     }

@@ -1,105 +1,85 @@
-import { auth } from '@/utils/firebase/config'
+const apiBaseUrl = process.env.NEXT_PUBLIC_API_ENDPOINT || "http://localhost:8000";
 
-const apiBaseUrl = process.env.NEXT_PUBLIC_API_ENDPOINT || 'http://localhost:8000'
+let isRefreshing = false;
+let refreshSubscribers: ((token: string) => void)[] = [];
 
-let isRefreshing = false
-let refreshSubscribers: (() => void)[] = []
-
-function subscribeTokenRefresh(cb: () => void) {
-  refreshSubscribers.push(cb)
+function subscribeTokenRefresh(cb: (token: string) => void) {
+  refreshSubscribers.push(cb);
 }
 
-function onRefreshed() {
-  refreshSubscribers.forEach((cb) => cb())
-  refreshSubscribers = []
+function onRefreshed(token: string) {
+  refreshSubscribers.map((cb) => cb(token));
+  refreshSubscribers = [];
 }
 
-/**
- * Attempt to refresh the session.
- * 
- * Strategy:
- * 1. If the user is signed in via Firebase, force-refresh the Firebase ID token
- *    and re-sync with the backend to get fresh httpOnly cookies.
- * 2. Otherwise fall back to the backend /auth/refresh cookie-based endpoint.
- * 
- * Returns true if refresh succeeded, false if the user must log in again.
- */
-async function refreshSession(): Promise<boolean> {
-  // Try Firebase-first refresh
-  const currentUser = auth.currentUser
-  if (currentUser) {
+async function refreshAccessToken() {
+  // Try Firebase token refresh first (primary login method)
+  if (typeof window !== 'undefined') {
     try {
-      const freshToken = await currentUser.getIdToken(/* forceRefresh */ true)
-      const res = await fetch(`${apiBaseUrl}/api/v1/auth/firebase-sync`, {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id_token: freshToken }),
-      })
-      return res.ok
+      const { auth } = await import('@/utils/firebase/config');
+      if (auth?.currentUser) {
+        const freshToken = await auth.currentUser.getIdToken(true);
+        const secure = window.location.protocol === 'https:' ? '; Secure' : '';
+        document.cookie = `access_token=Bearer ${freshToken}; path=/; max-age=3600; SameSite=Lax${secure}`;
+        return true;
+      }
     } catch {
-      return false
+      // Firebase not available — fall through to backend refresh
     }
   }
 
-  // Fallback: cookie-based refresh (for email/password sessions)
+  // Fallback: backend custom JWT refresh (for non-Firebase sessions)
   try {
     const res = await fetch(`${apiBaseUrl}/api/v1/auth/refresh`, {
-      method: 'POST',
-      credentials: 'include',
-    })
-    return res.ok
+      method: "POST",
+      credentials: "include",
+    });
+    return res.ok;
   } catch {
-    return false
+    return false;
   }
 }
 
 export async function apiClient(endpoint: string, options: RequestInit = {}): Promise<Response> {
-  const url = endpoint.startsWith('http') ? endpoint : `${apiBaseUrl}${endpoint}`
+  const url = endpoint.startsWith("http") ? endpoint : `${apiBaseUrl}${endpoint}`;
 
   const defaultOptions: RequestInit = {
     ...options,
-    credentials: 'include',
+    credentials: "include",
     headers: {
-      'Content-Type': 'application/json',
+      "Content-Type": "application/json",
       ...options.headers,
     },
-  }
+  };
 
-  let response = await fetch(url, defaultOptions)
+  const response = await fetch(url, defaultOptions);
 
-  // If 401 Unauthorized, try to refresh the session once
-  if (
-    response.status === 401 &&
-    !url.includes('/auth/login') &&
-    !url.includes('/auth/refresh') &&
-    !url.includes('/auth/firebase-sync')
-  ) {
+  // If 401 Unauthorized, try to refresh
+  if (response.status === 401 && !url.includes("/auth/login") && !url.includes("/auth/refresh")) {
     if (!isRefreshing) {
-      isRefreshing = true
-      const refreshed = await refreshSession()
-      isRefreshing = false
-
+      isRefreshing = true;
+      const refreshed = await refreshAccessToken();
+      isRefreshing = false;
+      
       if (refreshed) {
-        onRefreshed()
-        // Retry original request with fresh cookies
-        return fetch(url, defaultOptions)
+        onRefreshed("refreshed");
+        // Retry original request
+        return await fetch(url, defaultOptions);
       } else {
-        // Session is truly dead — redirect to login
-        if (typeof window !== 'undefined' && !window.location.pathname.includes('/login')) {
-          window.location.href = '/login'
+        // Total session failure - clear client state and redirect
+        if (typeof window !== "undefined" && !window.location.pathname.includes("/login")) {
+           window.location.href = "/login?error=Session expired. Please log in again.";
         }
-        return response
       }
     } else {
-      // Another request is already refreshing — queue this one
+      // If already refreshing, wait for it to complete
       return new Promise((resolve) => {
         subscribeTokenRefresh(() => {
-          resolve(fetch(url, defaultOptions))
-        })
-      })
+          resolve(fetch(url, defaultOptions));
+        });
+      });
     }
   }
 
-  return response
+  return response;
 }

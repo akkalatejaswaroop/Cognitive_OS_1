@@ -7,68 +7,72 @@ export interface AuthUser {
   role?: string
 }
 
-/**
- * Gets the current authenticated session user by decoding the JWT cookie.
- */
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+
+function decodeTokenPayload(token: string): Record<string, unknown> | null {
+  try {
+    const base64Url = token.split('.')[1]
+    if (!base64Url) return null
+    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/')
+    return JSON.parse(Buffer.from(base64, 'base64').toString('utf8'))
+  } catch {
+    return null
+  }
+}
+
 export async function getSessionUser(): Promise<AuthUser | null> {
   try {
     const cookieStore = await cookies()
     const tokenStr = cookieStore.get('access_token')?.value
-    
-    if (!tokenStr) {
-      // MVP Bypass: Return a mock user if no session cookie exists
-      return {
-        id: 'mvp-user-id',
-        email: 'mvp@cognitive.os',
-        role: 'admin'
-      }
-    }
-    
-    // token format is typically "Bearer eyJhbGci..."
+    if (!tokenStr) return null
+
     const token = tokenStr.replace('Bearer ', '')
-    const base64Url = token.split('.')[1]
-    if (!base64Url) {
-      return {
-        id: 'mvp-user-id',
-        email: 'mvp@cognitive.os',
-        role: 'admin'
-      }
-    }
-    
-    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/')
-    const payload = JSON.parse(Buffer.from(base64, 'base64').toString('utf8'))
-    
+    const payload = decodeTokenPayload(token)
+    if (!payload) return null
+
     return {
-      id: payload.user_id || payload.sub,
-      email: payload.email,
-      role: payload.role || 'user'
+      id: (payload.user_id as string) || (payload.sub as string),
+      email: payload.email as string | undefined,
+      role: (payload.role as string) || 'user',
     }
   } catch {
-    // MVP Bypass fallback
-    return {
-      id: 'mvp-user-id',
-      email: 'mvp@cognitive.os',
-      role: 'admin'
-    }
+    return null
   }
 }
 
-/**
- * Server-side route guard. Redirects if unauthorized or if role checks fail.
- */
 export async function requireAuth(options: { allowedRoles?: string[] } = {}) {
-  const user = await getSessionUser()
-  
-  if (!user) {
-    redirect('/login?error=Session expired. Please log in again.')
+  const cookieStore = await cookies()
+  const tokenStr = cookieStore.get('access_token')?.value
+
+  if (!tokenStr) {
+    redirect('/login?error=Session expired.')
   }
 
-  if (options.allowedRoles && options.allowedRoles.length > 0) {
-    const userRole = user.role || 'user'
-    if (!options.allowedRoles.includes(userRole)) {
-      redirect('/dashboard?error=Access denied. Unauthorized role level.')
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/v1/auth/me`, {
+      headers: { Cookie: `access_token=${tokenStr}` },
+      cache: 'no-store',
+    })
+
+    if (!res.ok) {
+      redirect('/login?error=Session expired.')
     }
-  }
 
-  return user
+    const data = await res.json()
+    const user: AuthUser = {
+      id: data.id,
+      email: data.email,
+      role: data.role || 'user',
+    }
+
+    if (options.allowedRoles && options.allowedRoles.length > 0) {
+      if (!options.allowedRoles.includes(user.role!)) {
+        redirect('/dashboard?error=Access denied.')
+      }
+    }
+
+    return user
+  } catch {
+    redirect('/login?error=Session expired.')
+  }
 }

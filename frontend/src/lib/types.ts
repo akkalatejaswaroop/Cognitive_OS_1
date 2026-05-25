@@ -38,7 +38,7 @@ export interface UserProfile {
   interests?: string[];
   hobbies?: string[];
   public_profile_url?: string;
-  app_metadata?: { provider: string; [key: string]: any };
+  app_metadata?: { provider: string; [key: string]: unknown };
 }
 
 export interface UserUpdatePayload {

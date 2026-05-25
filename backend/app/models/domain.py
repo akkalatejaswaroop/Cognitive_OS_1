@@ -1,9 +1,12 @@
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from sqlalchemy import Column, String, Boolean, DateTime, ForeignKey, Text, Integer, Float
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import relationship
 from app.core.database import Base
+
+def utcnow():
+    return datetime.now(timezone.utc)
 
 class User(Base):
     __tablename__ = "users"
@@ -38,8 +41,8 @@ class User(Base):
     
     onboarding_completed = Column(Boolean, default=False, nullable=False)
     timezone = Column(String(100), default="UTC", nullable=False)
-    created_at = Column(DateTime(timezone=True), default=datetime.utcnow)
-    updated_at = Column(DateTime(timezone=True), default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime(timezone=True), default=utcnow)
+    updated_at = Column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
 
     sessions = relationship("Session", back_populates="user", cascade="all, delete-orphan")
     integrations = relationship("Integration", back_populates="user", cascade="all, delete-orphan")
@@ -57,8 +60,8 @@ class Workspace(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     name = Column(String(255), nullable=False)
     owner_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), index=True)
-    created_at = Column(DateTime(timezone=True), default=datetime.utcnow)
-    updated_at = Column(DateTime(timezone=True), default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime(timezone=True), default=utcnow)
+    updated_at = Column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
 
     owner = relationship("User", back_populates="workspaces")
 
@@ -69,7 +72,7 @@ class Session(Base):
     user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"))
     device_info = Column(JSONB)
     expires_at = Column(DateTime(timezone=True), nullable=False)
-    created_at = Column(DateTime(timezone=True), default=datetime.utcnow)
+    created_at = Column(DateTime(timezone=True), default=utcnow)
 
     user = relationship("User", back_populates="sessions")
 
@@ -81,7 +84,7 @@ class Integration(Base):
     provider = Column(String(100), nullable=False)
     credentials = Column(JSONB, nullable=False)
     is_active = Column(Boolean, default=True)
-    created_at = Column(DateTime(timezone=True), default=datetime.utcnow)
+    created_at = Column(DateTime(timezone=True), default=utcnow)
 
     user = relationship("User", back_populates="integrations")
 
@@ -93,8 +96,8 @@ class Workflow(Base):
     name = Column(String(255), nullable=False)
     description = Column(Text)
     dag_definition = Column(JSONB, nullable=False)
-    created_at = Column(DateTime(timezone=True), default=datetime.utcnow)
-    updated_at = Column(DateTime(timezone=True), default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime(timezone=True), default=utcnow)
+    updated_at = Column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
 
     user = relationship("User", back_populates="workflows")
     tasks = relationship("Task", back_populates="workflow")
@@ -105,8 +108,8 @@ class Conversation(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"))
     title = Column(String(255), default="New Conversation")
-    created_at = Column(DateTime(timezone=True), default=datetime.utcnow)
-    updated_at = Column(DateTime(timezone=True), default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime(timezone=True), default=utcnow)
+    updated_at = Column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
 
     user = relationship("User", back_populates="conversations")
     tasks = relationship("Task", back_populates="conversation", cascade="all, delete-orphan")
@@ -127,7 +130,7 @@ class Task(Base):
     
     started_at = Column(DateTime(timezone=True))
     completed_at = Column(DateTime(timezone=True))
-    created_at = Column(DateTime(timezone=True), default=datetime.utcnow)
+    created_at = Column(DateTime(timezone=True), default=utcnow)
 
     conversation = relationship("Conversation", back_populates="tasks")
     workflow = relationship("Workflow", back_populates="tasks")
@@ -146,7 +149,7 @@ class AgentLog(Base):
     log_level = Column(String(20), default="info")
     message = Column(Text, nullable=False)
     metadata_json = Column(JSONB)  # Using metadata_json instead of metadata to avoid SQLAlchemy collision
-    created_at = Column(DateTime(timezone=True), default=datetime.utcnow)
+    created_at = Column(DateTime(timezone=True), default=utcnow)
 
     task = relationship("Task", back_populates="logs")
 
@@ -159,7 +162,7 @@ class AIAction(Base):
     tool_input = Column(JSONB)
     tool_output = Column(JSONB)
     execution_time_ms = Column(Integer)
-    created_at = Column(DateTime(timezone=True), default=datetime.utcnow)
+    created_at = Column(DateTime(timezone=True), default=utcnow)
 
     task = relationship("Task", back_populates="actions")
 
@@ -173,7 +176,7 @@ class Memory(Base):
     memory_type = Column(String(50), nullable=False)
     summary = Column(Text)
     importance_score = Column(Float, default=0.5)
-    created_at = Column(DateTime(timezone=True), default=datetime.utcnow)
+    created_at = Column(DateTime(timezone=True), default=utcnow)
 
     user = relationship("User", back_populates="memories")
     conversation = relationship("Conversation", back_populates="memories")
@@ -187,7 +190,7 @@ class Notification(Base):
     message = Column(Text)
     is_read = Column(Boolean, default=False)
     action_link = Column(String(255))
-    created_at = Column(DateTime(timezone=True), default=datetime.utcnow)
+    created_at = Column(DateTime(timezone=True), default=utcnow)
 
     user = relationship("User", back_populates="notifications")
 
@@ -205,10 +208,10 @@ class Subscription(Base):
     cancel_at_period_end = Column(Boolean, default=False, nullable=False)
     trial_start = Column(DateTime(timezone=True), nullable=True)
     trial_end = Column(DateTime(timezone=True), nullable=True)
-    current_period_start = Column(DateTime(timezone=True), default=datetime.utcnow, nullable=False)
-    current_period_end = Column(DateTime(timezone=True), default=datetime.utcnow, nullable=False)
-    created_at = Column(DateTime(timezone=True), default=datetime.utcnow)
-    updated_at = Column(DateTime(timezone=True), default=datetime.utcnow, onupdate=datetime.utcnow)
+    current_period_start = Column(DateTime(timezone=True), default=utcnow, nullable=False)
+    current_period_end = Column(DateTime(timezone=True), default=utcnow, nullable=False)
+    created_at = Column(DateTime(timezone=True), default=utcnow)
+    updated_at = Column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
 
     user = relationship("User", back_populates="subscription")
 
@@ -222,6 +225,6 @@ class ActivityLog(Base):
     action_type = Column(String(100), nullable=False, index=True)
     severity_level = Column(String(50), default="info", nullable=False)
     metadata_json = Column(JSONB, default=dict, nullable=True)
-    created_at = Column(DateTime(timezone=True), default=datetime.utcnow)
+    created_at = Column(DateTime(timezone=True), default=utcnow)
 
     user = relationship("User", back_populates="activity_logs")

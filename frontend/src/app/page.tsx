@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -11,14 +11,8 @@ import {
   Network,
   Brain,
   Activity,
-  Sliders,
-  ChevronRight,
   ArrowRight,
-  ArrowUpRight,
   Sparkles,
-  Command,
-  HelpCircle,
-  Eye,
   CheckCircle2,
   RefreshCw,
   Play,
@@ -26,8 +20,6 @@ import {
   Zap,
   Server,
   Layers,
-  Settings,
-  AlertCircle,
 } from "lucide-react";
 import { MarketingHeader } from "@/components/MarketingHeader";
 import { MarketingFooter } from "@/components/MarketingFooter";
@@ -135,6 +127,20 @@ export default function PremiumLandingPage() {
     cache: 314,
   });
 
+  const swarmIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const dbIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const simTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const metricsTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Clean up simulation intervals on unmount
+  useEffect(() => {
+    return () => {
+      if (swarmIntervalRef.current) clearInterval(swarmIntervalRef.current);
+      if (dbIntervalRef.current) clearInterval(dbIntervalRef.current);
+      if (simTimerRef.current) clearTimeout(simTimerRef.current);
+      if (metricsTimerRef.current) clearTimeout(metricsTimerRef.current);
+    };
+  }, []);
+
   const runSimulatedCommand = (cmd: string) => {
     if (booting) return;
     setBooting(true);
@@ -146,7 +152,7 @@ export default function PremiumLandingPage() {
     ];
     setTerminalLogs(newLogs);
 
-    setTimeout(() => {
+    simTimerRef.current = setTimeout(() => {
       let responseLogs: TerminalLog[] = [];
       if (cmd === "diagnostics") {
         responseLogs = [
@@ -197,7 +203,7 @@ export default function PremiumLandingPage() {
       { text: cmd, type: "input", time: timestamp },
     ]);
 
-    setTimeout(() => {
+    simTimerRef.current = setTimeout(() => {
       let reply: TerminalLog;
       if (cmd.includes("help")) {
         reply = { text: "Supported commands: 'diagnostics', 'assistants', 'database', 'optimize', 'clear', 'about'", type: "system", time: timestamp };
@@ -250,13 +256,17 @@ export default function PremiumLandingPage() {
     let current = 0;
     setSwarmLogs([`[INFO] Spawning coordinated workspace operation for: "${taskTitle}"`]);
 
-    const interval = setInterval(() => {
+    if (swarmIntervalRef.current) clearInterval(swarmIntervalRef.current);
+    swarmIntervalRef.current = setInterval(() => {
       if (current < steps.length) {
         setSwarmLogs(prev => [...prev, `[${steps[current].time}] ${steps[current].msg}`]);
         setSwarmStep(current + 1);
         current++;
       } else {
-        clearInterval(interval);
+        if (swarmIntervalRef.current) {
+          clearInterval(swarmIntervalRef.current);
+          swarmIntervalRef.current = null;
+        }
         setSwarmRunning(false);
       }
     }, 850);
@@ -278,13 +288,17 @@ export default function PremiumLandingPage() {
     ];
 
     let current = 0;
-    const interval = setInterval(() => {
+    if (dbIntervalRef.current) clearInterval(dbIntervalRef.current);
+    dbIntervalRef.current = setInterval(() => {
       if (current < steps.length) {
         setDbConsoleOutput(prev => [...prev, `[database-engine] ${steps[current].msg}`]);
         setDbProgress(steps[current].progress);
         current++;
       } else {
-        clearInterval(interval);
+        if (dbIntervalRef.current) {
+          clearInterval(dbIntervalRef.current);
+          dbIntervalRef.current = null;
+        }
         setDbOptimizing(false);
         setMetrics(prev => ({
           ...prev,
@@ -299,10 +313,10 @@ export default function PremiumLandingPage() {
   const refreshPerformanceMetrics = () => {
     if (refreshingPerf) return;
     setRefreshingPerf(true);
-    setTimeout(() => {
+    metricsTimerRef.current = setTimeout(() => {
       setMetrics({
-        latency: Math.floor(Math.random() * 4) + 9, // 9ms - 12ms
-        pools: Math.floor(Math.random() * 5) + 10,  // 10 - 14 pools
+        latency: Math.floor(Math.random() * 4) + 9,
+        pools: Math.floor(Math.random() * 5) + 10,
         accuracy: parseFloat((99.2 + Math.random() * 0.6).toFixed(1)),
         cache: Math.floor(Math.random() * 20) + 300,
       });
@@ -430,7 +444,7 @@ export default function PremiumLandingPage() {
                     <button
                       key={btn.id}
                       onClick={() => {
-                        setActiveTab(btn.id as any);
+                        setActiveTab(btn.id as "terminal" | "agents" | "database" | "performance");
                         // Output to terminal that we transitioned
                         const timestamp = new Date().toTimeString().split(" ")[0];
                         setTerminalLogs(prev => [
@@ -626,7 +640,7 @@ export default function PremiumLandingPage() {
                           <div className="bg-black/40 rounded-lg p-3 border border-white/5 min-h-[90px] font-mono text-[9px] text-white/60 space-y-1.5 max-h-[110px] overflow-y-auto custom-scrollbar">
                             {swarmLogs.length === 0 ? (
                               <div className="text-white/20 italic flex items-center justify-center min-h-[70px] text-center">
-                                Select a scenario and click "Trigger Swarm Workspace" below to visualize the collaboration pipeline.
+                                Select a scenario and click &ldquo;Trigger Swarm Workspace&rdquo; below to visualize the collaboration pipeline.
                               </div>
                             ) : (
                               swarmLogs.map((log, idx) => (
@@ -734,7 +748,7 @@ export default function PremiumLandingPage() {
                           <div className="bg-black/40 rounded-lg p-2.5 border border-white/5 min-h-[60px] font-mono text-[9px] text-white/60 space-y-1 max-h-[80px] overflow-y-auto custom-scrollbar">
                             {dbConsoleOutput.length === 0 ? (
                               <div className="text-white/20 italic flex items-center justify-center min-h-[40px] text-center">
-                                Database storage channels stable. Click "Optimize DB Space" to reclaim sector blocks.
+                                Database storage channels stable. Click &ldquo;Optimize DB Space&rdquo; to reclaim sector blocks.
                               </div>
                             ) : (
                               dbConsoleOutput.map((line, idx) => (

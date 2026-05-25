@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from "react";
 import { 
   Bell, Search, User, Zap, Menu,
-  ChevronDown, LogOut, Settings, 
+  ChevronDown, LogOut, 
   Briefcase, Plus
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -42,7 +42,6 @@ export function Navbar() {
   const { signOut } = useAuth();
   // Use the backend user (authStore) for display — it has real profile data
   const { user: backendUser } = useAuthStore();
-  const router = useRouter();
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const profileRef = useRef<HTMLDivElement>(null);
 

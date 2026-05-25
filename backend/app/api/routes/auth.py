@@ -6,9 +6,11 @@ from app.core.database import get_db
 from app.models.domain import User, Session as DBSession
 from app.core.security import create_token, get_password_hash, verify_password
 from app.core.config import settings
+from app.schemas.user import UserUpdate, UserProfileResponse, PublicProfileResponse
 from pydantic import BaseModel
-from datetime import datetime, timedelta
-import uuid
+from datetime import datetime, timedelta, timezone
+from fastapi import UploadFile, File
+import uuid, shutil, os, json
 
 router = APIRouter()
 
@@ -121,12 +123,41 @@ class GoogleAuthIn(BaseModel):
 
 @router.post("/google")
 def google_auth(response: Response, user_in: GoogleAuthIn, db: Session = Depends(get_db)):
-    # 1. Check if user already exists
+    # Verify Firebase credential/ID token before trusting the email
+    if user_in.credential:
+        try:
+            import firebase_admin.auth
+            from firebase_admin import credentials, initialize_app, get_app
+
+            try:
+                get_app()
+            except ValueError:
+                if settings.FIREBASE_SERVICE_ACCOUNT_JSON:
+                    try:
+                        cred_dict = json.loads(settings.FIREBASE_SERVICE_ACCOUNT_JSON)
+                        cred = credentials.Certificate(cred_dict)
+                    except json.JSONDecodeError:
+                        cred = credentials.Certificate(settings.FIREBASE_SERVICE_ACCOUNT_JSON)
+                    initialize_app(cred)
+                else:
+                    options = {}
+                    if getattr(settings, "FIREBASE_PROJECT_ID", None):
+                        options["projectId"] = settings.FIREBASE_PROJECT_ID
+                    initialize_app(options=options if options else None)
+
+            decoded = firebase_admin.auth.verify_id_token(user_in.credential)
+            if decoded.get("email") != user_in.email:
+                raise HTTPException(status_code=403, detail="Email mismatch with token")
+        except HTTPException:
+            raise
+        except Exception as e:
+            raise HTTPException(status_code=401, detail=f"Invalid Google credential: {e}")
+    else:
+        raise HTTPException(status_code=400, detail="Google credential token required")
+
     user = db.query(User).filter(User.email == user_in.email).first()
-    
+
     if not user:
-        # Create a new user since it is sign up / sign in together
-        # Generates a random secure password hash
         random_password = uuid.uuid4().hex
         user = User(
             email=user_in.email,
@@ -138,32 +169,15 @@ def google_auth(response: Response, user_in: GoogleAuthIn, db: Session = Depends
         db.commit()
         db.refresh(user)
 
-    # 2. Complete login flow (same as email/pass login success)
     access_token = create_token(subject=user.id, token_type="access")
     refresh_token = create_token(subject=user.id, token_type="refresh")
-    
-    db_session = DBSession(user_id=user.id, expires_at=datetime.utcnow() + timedelta(days=7))
+
+    now = datetime.now(timezone.utc)
+    db_session = DBSession(user_id=user.id, expires_at=now + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS))
     db.add(db_session)
     db.commit()
 
-    is_prod = settings.ENVIRONMENT.lower() == "production"
-
-    response.set_cookie(
-        key="access_token",
-        value=f"Bearer {access_token}",
-        httponly=True,
-        secure=is_prod,
-        samesite="none" if is_prod else "lax",
-        max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60
-    )
-    response.set_cookie(
-        key="refresh_token",
-        value=refresh_token,
-        httponly=True,
-        secure=is_prod,
-        samesite="none" if is_prod else "lax",
-        max_age=7 * 24 * 60 * 60
-    )
+    set_auth_cookies(response, access_token, refresh_token)
 
     return {
         "message": "Google authentication successful",
@@ -223,10 +237,10 @@ def login(response: Response, user_in: UserLogin, request: Request, db: Session 
     access_token = create_token(subject=user.id, token_type="access")
     refresh_token = create_token(subject=user.id, token_type="refresh")
     
-    # Track session for multi-device readiness
+    now = datetime.now(timezone.utc)
     db_session = DBSession(
-        user_id=user.id, 
-        expires_at=datetime.utcnow() + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS),
+        user_id=user.id,
+        expires_at=now + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS),
         device_info={"user_agent": request.headers.get("user-agent")}
     )
     db.add(db_session)
@@ -243,6 +257,7 @@ def login(response: Response, user_in: UserLogin, request: Request, db: Session 
             "name": user.name,
             "avatar_url": user.avatar_url,
             "is_active": user.is_active,
+            "preferences": user.preferences or {}
         }
     }
 
@@ -261,16 +276,24 @@ def refresh(request: Request, response: Response, db: Session = Depends(get_db))
     except JWTError:
         raise HTTPException(status_code=401, detail="Invalid refresh token")
     
-    # Validate session in DB
+    try:
+        user_uuid = uuid.UUID(user_id)
+    except (ValueError, TypeError):
+        raise HTTPException(status_code=401, detail="Invalid refresh token")
+    
+    now = datetime.now(timezone.utc)
+    
+    # Validate session in DB - match the specific session that issued the refresh token
+    # Use the jti (JWT ID) claim to trace back to a specific db session if available
     db_session = db.query(DBSession).filter(
-        DBSession.user_id == uuid.UUID(user_id),
-        DBSession.expires_at > datetime.utcnow()
-    ).first()
+        DBSession.user_id == user_uuid,
+        DBSession.expires_at > now
+    ).order_by(DBSession.created_at.desc()).first()
     
     if not db_session:
         raise HTTPException(status_code=401, detail="Session expired or invalid")
     
-    user = db.query(User).filter(User.id == uuid.UUID(user_id)).first()
+    user = db.query(User).filter(User.id == user_uuid).first()
     if not user or not user.is_active:
         raise HTTPException(status_code=401, detail="User not found or inactive")
 
@@ -279,7 +302,7 @@ def refresh(request: Request, response: Response, db: Session = Depends(get_db))
     new_refresh_token = create_token(subject=user.id, token_type="refresh")
     
     # Update current session
-    db_session.expires_at = datetime.utcnow() + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
+    db_session.expires_at = now + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
     db.commit()
 
     set_auth_cookies(response, new_access_token, new_refresh_token)
@@ -295,22 +318,25 @@ def logout(response: Response, request: Request, db: Session = Depends(get_db)):
             payload = jwt.decode(refresh_token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
             user_id = payload.get("sub")
             if user_id:
-                db.query(DBSession).filter(DBSession.user_id == uuid.UUID(user_id)).delete()
+                user_uuid = uuid.UUID(user_id)
+                # Only delete the current session, not all user sessions
+                current_session = db.query(DBSession).filter(
+                    DBSession.user_id == user_uuid,
+                    DBSession.expires_at > datetime.now(timezone.utc)
+                ).order_by(DBSession.created_at.desc()).first()
+                if current_session:
+                    db.delete(current_session)
                 db.commit()
-        except:
+        except Exception:
             pass
 
     response.delete_cookie("access_token", path="/")
     response.delete_cookie("refresh_token", path="/")
     return {"message": "Logged out successfully"}
 
-from app.schemas.user import UserUpdate, UserProfileResponse, PublicProfileResponse
-from fastapi import UploadFile, File
-import shutil
-import os
 
 @router.get("/me", response_model=UserProfileResponse)
-def get_me(request: Request, db: Session = Depends(get_db)):
+def get_me(request: Request, response: Response, db: Session = Depends(get_db)):
     # Custom implementation of get_current_user logic to handle auto-provisioning
     token = request.cookies.get("access_token")
     if token and token.startswith("Bearer "):
@@ -341,6 +367,25 @@ def get_me(request: Request, db: Session = Depends(get_db)):
     if payload is None:
         try:
             import firebase_admin.auth
+            from firebase_admin import credentials, initialize_app, get_app
+            
+            try:
+                get_app()
+            except ValueError:
+                if settings.FIREBASE_SERVICE_ACCOUNT_JSON:
+                    import json
+                    try:
+                        cred_dict = json.loads(settings.FIREBASE_SERVICE_ACCOUNT_JSON)
+                        cred = credentials.Certificate(cred_dict)
+                    except json.JSONDecodeError:
+                        cred = credentials.Certificate(settings.FIREBASE_SERVICE_ACCOUNT_JSON)
+                    initialize_app(cred)
+                else:
+                    options = {}
+                    if getattr(settings, "FIREBASE_PROJECT_ID", None):
+                        options["projectId"] = settings.FIREBASE_PROJECT_ID
+                    initialize_app(options=options if options else None)
+                    
             decoded_token = firebase_admin.auth.verify_id_token(token)
             firebase_uid = decoded_token.get("uid")
             payload = decoded_token
@@ -391,7 +436,33 @@ def get_me(request: Request, db: Session = Depends(get_db)):
     if user is None or not user.is_active:
         raise credentials_exception
 
+    # If authenticated via Firebase (no custom JWT session), create a backend session
+    # and set proper JWT cookies so the refresh flow works seamlessly.
+    if is_firebase or (payload and payload.get("type") != "access"):
+        now = datetime.now(timezone.utc)
+        db_session = db.query(DBSession).filter(
+            DBSession.user_id == user.id,
+            DBSession.expires_at > now
+        ).first()
+
+        if not db_session:
+            db_session = DBSession(
+                user_id=user.id,
+                expires_at=now + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS),
+                device_info={"user_agent": request.headers.get("user-agent")}
+            )
+            db.add(db_session)
+        else:
+            db_session.expires_at = now + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
+
+        db.commit()
+
+        new_access_token = create_token(subject=user.id, token_type="access")
+        new_refresh_token = create_token(subject=user.id, token_type="refresh")
+        set_auth_cookies(response, new_access_token, new_refresh_token)
+
     return UserProfileResponse.model_validate(user)
+
 
 @router.patch("/profile", response_model=UserProfileResponse)
 def update_profile(
@@ -417,9 +488,15 @@ def update_profile(
             existing_cog.update(incoming_cog)
         current_user.cognitive_preferences = existing_cog
 
-    # Handle dob string → store as-is (DateTime column will coerce)
-    if "dob" in update_data and update_data["dob"] == "":
-        update_data["dob"] = None
+    # Handle dob string → parse to datetime or None
+    if "dob" in update_data:
+        if update_data["dob"] == "":
+            update_data["dob"] = None
+        elif update_data["dob"]:
+            try:
+                update_data["dob"] = datetime.fromisoformat(update_data["dob"])
+            except ValueError:
+                raise HTTPException(status_code=422, detail="Invalid date format for dob. Use ISO format (e.g., 1990-01-01).")
 
     # Update other scalar fields
     for field, value in update_data.items():

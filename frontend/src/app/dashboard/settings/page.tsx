@@ -1,11 +1,11 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
-  User, Sliders, Sparkles, Check, Globe, Bell, 
-  ShieldAlert, Activity, Terminal, Settings, 
-  Upload, Image, RefreshCw, Eye, Sparkle
+  User, Sliders, Sparkles, Check, Bell, 
+  ShieldAlert, Activity, Terminal, 
+  Image, RefreshCw, Eye, Sparkle
 } from "lucide-react";
 import { useAuthStore } from "@/store/authStore";
 import { apiClient } from "@/lib/api";
@@ -68,9 +68,18 @@ export default function SettingsPage() {
   const [saveStatus, setSaveStatus] = useState<"idle" | "success" | "error">("idle");
   const [errorMessage, setErrorMessage] = useState("");
 
+  const statusTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    return () => {
+      if (statusTimerRef.current) clearTimeout(statusTimerRef.current)
+    }
+  }, [])
+
   // Initialize values from auth store
   useEffect(() => {
     if (user) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- init from user data
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- init form from user
       setName(user.name || "");
       setAvatarUrl(user.avatar_url || AVATAR_PRESETS[0].url);
       
@@ -84,15 +93,15 @@ export default function SettingsPage() {
       }
 
       // Initialize preferences
-      const prefs: any = user.preferences || {};
-      setTone(prefs.tone || "editorial");
-      setCreativity(prefs.creativity !== undefined ? prefs.creativity : 0.7);
-      setModel(prefs.model || "gemini-3.1-pro");
-      setDensity(prefs.density || "default");
-      setEmailDigest(prefs.emailDigest !== undefined ? prefs.emailDigest : true);
-      setSecurityAlerts(prefs.securityAlerts !== undefined ? prefs.securityAlerts : true);
-      setSystemUpdates(prefs.systemUpdates !== undefined ? prefs.systemUpdates : false);
-      setInstructions(prefs.instructions || "");
+      const prefs = (user.preferences || {}) as unknown as Record<string, unknown>;
+      setTone((prefs.tone as "editorial" | "technical" | "concise" | "creative") || "editorial");
+      setCreativity(prefs.creativity !== undefined ? prefs.creativity as number : 0.7);
+      setModel((prefs.model as string) || "gemini-3.1-pro");
+      setDensity((prefs.density as "default" | "dense") || "default");
+      setEmailDigest(prefs.emailDigest !== undefined ? prefs.emailDigest as boolean : true);
+      setSecurityAlerts(prefs.securityAlerts !== undefined ? prefs.securityAlerts as boolean : true);
+      setSystemUpdates(prefs.systemUpdates !== undefined ? prefs.systemUpdates as boolean : false);
+      setInstructions((prefs.instructions as string) || "");
     }
   }, [user]);
 
@@ -128,14 +137,14 @@ export default function SettingsPage() {
 
       if (res.ok) {
         setSaveStatus("success");
-        await fetchMe(); // Refresh global auth status
-        setTimeout(() => setSaveStatus("idle"), 3000);
+        await fetchMe();
+        statusTimerRef.current = setTimeout(() => setSaveStatus("idle"), 3000);
       } else {
         const errorData = await res.json();
         setSaveStatus("error");
         setErrorMessage(errorData.detail || "Failed to update profile configurations.");
       }
-    } catch (err) {
+    } catch {
       setSaveStatus("error");
       setErrorMessage("Network response failed. Please try again.");
     } finally {
@@ -143,8 +152,7 @@ export default function SettingsPage() {
     }
   };
 
-  const displayName = name || user?.email.split("@")[0] || "User";
-  const initials = displayName.slice(0, 2).toUpperCase();
+  const displayName = name || user?.email?.split("@")[0] || "User";
 
   return (
     <div className="space-y-8 pb-16">
@@ -409,7 +417,7 @@ export default function SettingsPage() {
                         <button
                           key={item.id}
                           type="button"
-                          onClick={() => setTone(item.id as any)}
+                          onClick={() => setTone(item.id as "editorial" | "technical" | "concise" | "creative")}
                           className={cn(
                             "flex flex-col items-start text-left p-3.5 rounded-xl border transition-all cursor-pointer",
                             tone === item.id 
@@ -512,7 +520,7 @@ export default function SettingsPage() {
                         <button
                           key={item.id}
                           type="button"
-                          onClick={() => setDensity(item.id as any)}
+                          onClick={() => setDensity(item.id as "default" | "dense")}
                           className={cn(
                             "flex flex-col items-start text-left p-3.5 rounded-xl border transition-all cursor-pointer",
                             density === item.id 

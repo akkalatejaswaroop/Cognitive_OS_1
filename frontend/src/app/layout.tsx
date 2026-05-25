@@ -33,6 +33,7 @@ export const viewport: Viewport = {
   maximumScale: 1,
 };
 import { AuthProvider } from "@/contexts/AuthContext";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 
 
 export default function RootLayout({
@@ -45,12 +46,12 @@ export default function RootLayout({
       <body
         className={`${playfair.variable} ${instrument.variable} font-sans text-foreground bg-background antialiased transition-theme`}
       >
-        {/* ThemeProvider defaults (class attr, dark default, system detection, 
-            persistent storageKey) are all baked into the component. */}
         <ThemeProvider>
           <AuthProvider>
             <AuthInitializer>
-              {children}
+              <ErrorBoundary>
+                {children}
+              </ErrorBoundary>
             </AuthInitializer>
           </AuthProvider>
         </ThemeProvider>

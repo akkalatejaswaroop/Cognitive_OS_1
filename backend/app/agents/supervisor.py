@@ -215,7 +215,8 @@ class SupervisorAgent(BaseAgent):
             })
             return await asyncio.wait_for(future, timeout=120.0)
         except asyncio.TimeoutError:
-            raise Exception(f"Agent {sub_agent} timed out on task {sub_task_id}")
+            logger.error(f"Sub-agent {sub_agent} timed out for task {sub_task_id}")
+            raise TimeoutError(f"Sub-agent {sub_agent} did not respond within 120 seconds.")
         finally:
             event_bus.unsubscribe(f"task.status.{sub_task_id}", status_callback)
 

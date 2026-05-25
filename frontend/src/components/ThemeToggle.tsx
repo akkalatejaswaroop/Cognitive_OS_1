@@ -23,10 +23,13 @@ const themeOptions: {
    ThemeToggle — Inline cycling button for Navbar
 ───────────────────────────────────────────────────────────── */
 export function ThemeToggle({ className }: { className?: string }) {
-  const { theme, setTheme, resolvedTheme } = useTheme();
+  const { theme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
 
-  useEffect(() => setMounted(true), []);
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- SSR guard
+    setMounted(true);
+  }, []);
 
   // Render placeholder during SSR to prevent layout shift
   if (!mounted) {
@@ -41,7 +44,7 @@ export function ThemeToggle({ className }: { className?: string }) {
   }
 
   const current = (theme as ThemeOption) ?? "dark";
-  const isDark = resolvedTheme === "dark";
+  const isDark = theme === "dark";
 
   const cycle = () => {
     const order: ThemeOption[] = ["light", "dark", "system"];
@@ -98,9 +101,11 @@ export function ThemeSegmentedControl({ className }: { className?: string }) {
   const { theme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
 
-  useEffect(() => setMounted(true), []);
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- SSR guard
+    setMounted(true);
+  }, []);
   if (!mounted) return null;
-
   return (
     <div
       className={cn(
@@ -148,12 +153,15 @@ export function ThemeSegmentedControl({ className }: { className?: string }) {
    Use in settings panels or preference modals.
 ───────────────────────────────────────────────────────────── */
 export function ThemeDropdown({ className }: { className?: string }) {
-  const { theme, setTheme, resolvedTheme } = useTheme();
+  const { theme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
   const [open, setOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => setMounted(true), []);
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- SSR guard
+    setMounted(true);
+  }, []);
 
   // Close on outside click
   useEffect(() => {

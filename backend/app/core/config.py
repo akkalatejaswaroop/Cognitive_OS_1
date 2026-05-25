@@ -18,6 +18,7 @@ class Settings(BaseSettings):
 
     # Firebase Admin SDK credentials (path to JSON file or JSON string)
     FIREBASE_SERVICE_ACCOUNT_JSON: str = ""
+    FIREBASE_PROJECT_ID: str = ""
 
     # Postgres Database (Neon) — MUST be set via .env or environment variable
     DATABASE_URL: str = ""
@@ -36,6 +37,7 @@ class Settings(BaseSettings):
 
     # Legacy key — kept so old .env files don't break pydantic-settings
     OPENROUTER_API_KEY: str = ""
+    OPENAI_API_KEY: str = ""
 
     # ── OpenAI ──────────────────────────────────────────────────────────── #
     OPENAI_API_KEY: str = ""
@@ -97,6 +99,20 @@ def setup_logging():
     root_logger.addHandler(file_handler)
 
 
-import logging.handlers  # noqa: E402 — needed for the handler above
-
 setup_logging()
+
+
+def validate_settings():
+    if not settings.DATABASE_URL:
+        raise RuntimeError(
+            "DATABASE_URL is not configured. Set it in .env file or "
+            "as an environment variable."
+        )
+    if not settings.SECRET_KEY:
+        raise RuntimeError(
+            "SECRET_KEY is not configured. Set it in .env file or "
+            "as an environment variable."
+        )
+
+
+validate_settings()

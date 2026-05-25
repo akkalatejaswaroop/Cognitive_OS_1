@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState } from "react";
 
 /* ═══════════════════════════════════════════════════════════════
    Breakpoint System for Cognitive OS
@@ -48,7 +48,7 @@ export function useBreakpoint() {
       setWidth(w);
       setBreakpoint(getBreakpoint(w));
     }
-    handleResize(); // initial
+    handleResize();
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
   }, []);
@@ -76,6 +76,7 @@ export function useMediaQuery(query: string): boolean {
 
   useEffect(() => {
     const mql = window.matchMedia(query);
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- SSR guard for media query
     setMatches(mql.matches);
     const handler = (e: MediaQueryListEvent) => setMatches(e.matches);
     mql.addEventListener("change", handler);
@@ -90,6 +91,7 @@ export function useMediaQuery(query: string): boolean {
  */
 export function useMounted(): boolean {
   const [mounted, setMounted] = useState(false);
-  useEffect(() => setMounted(true), []);
+  useEffect(() => { setMounted(true); // eslint-disable-line react-hooks/set-state-in-effect
+  }, []);
   return mounted;
 }

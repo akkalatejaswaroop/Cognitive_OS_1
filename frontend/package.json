@@ -11,12 +11,14 @@
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
     "@neondatabase/auth": "^0.4.1-beta",
-    "firebase": "^10.12.0",
+    "chromadb": "^3.4.3",
     "clsx": "^2.1.1",
+    "firebase": "^12.13.0",
     "framer-motion": "^12.38.0",
     "lucide-react": "^1.16.0",
     "next": "16.2.6",
     "next-themes": "^0.4.6",
+    "openai": "^6.38.0",
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "react-hook-form": "^7.76.0",
@@ -33,5 +35,9 @@
     "eslint-config-next": "16.2.6",
     "tailwindcss": "^4",
     "typescript": "^5"
+  },
+  "overrides": {
+    "postcss": "^8.5.10",
+    "better-auth": "^1.6.2"
   }
 }

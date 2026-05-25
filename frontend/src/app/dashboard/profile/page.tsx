@@ -58,6 +58,12 @@ export default function ProfilePage() {
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error', message: string } | null>(null)
   const isOnboarding = user && !user.onboarding_completed
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const feedbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  useEffect(() => {
+    return () => {
+      if (feedbackTimerRef.current) clearTimeout(feedbackTimerRef.current)
+    }
+  }, [])
 
   const {
     register,
@@ -120,7 +126,7 @@ export default function ProfilePage() {
       const interests = data.interests_str ? data.interests_str.split(',').map(s => s.trim()).filter(Boolean) : []
       const hobbies = data.hobbies_str ? data.hobbies_str.split(',').map(s => s.trim()).filter(Boolean) : []
       
-      const payload: any = {
+      const payload: Record<string, unknown> = {
         ...data,
         interests,
         hobbies,
@@ -129,18 +135,18 @@ export default function ProfilePage() {
       delete payload.interests_str
       delete payload.hobbies_str
 
-      const res: any = await apiClient('/api/v1/auth/profile', {
+      const res = await apiClient('/api/v1/auth/profile', {
         method: 'PATCH',
         body: JSON.stringify(payload),
       })
 
-      if (!res.ok) throw new Error('Failed to update profile')
+      if (!(res as Response).ok) throw new Error('Failed to update profile')
       
       await fetchMe()
       setFeedback({ type: 'success', message: 'Profile updated successfully' })
-      setTimeout(() => setFeedback(null), 3000)
-    } catch (err: any) {
-      setFeedback({ type: 'error', message: err.message || 'An error occurred' })
+      feedbackTimerRef.current = setTimeout(() => setFeedback(null), 3000)
+    } catch (err: unknown) {
+      setFeedback({ type: 'error', message: (err as Error).message || 'An error occurred' })
     } finally {
       setIsSaving(false)
     }
@@ -165,8 +171,8 @@ export default function ProfilePage() {
       
       await fetchMe()
       setFeedback({ type: 'success', message: 'Avatar updated' })
-    } catch (err: any) {
-      setFeedback({ type: 'error', message: err.message })
+    } catch {
+      setFeedback({ type: 'error', message: 'Failed to upload avatar' })
     } finally {
       setIsUploading(false)
     }
@@ -254,7 +260,7 @@ export default function ProfilePage() {
           ].map((tab) => (
             <button
               key={tab.id}
-              onClick={() => setActiveTab(tab.id as any)}
+              onClick={() => setActiveTab(tab.id as 'profile' | 'cognitive' | 'preferences')}
               className={cn(
                 "w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all text-left",
                 activeTab === tab.id 
@@ -527,7 +533,7 @@ export default function ProfilePage() {
                           <button
                             key={theme}
                             type="button"
-                            onClick={() => setValue('preferences.theme', theme as any, { shouldDirty: true })}
+                            onClick={() => setValue('preferences.theme', theme as 'light' | 'dark' | 'system', { shouldDirty: true })}
                             className={cn(
                               "flex-1 py-3 rounded-xl border text-sm font-medium transition-all capitalize",
                               watch('preferences.theme') === theme 
@@ -548,7 +554,7 @@ export default function ProfilePage() {
                           <button
                             key={density}
                             type="button"
-                            onClick={() => setValue('preferences.density', density as any, { shouldDirty: true })}
+                            onClick={() => setValue('preferences.density', density as 'default' | 'dense', { shouldDirty: true })}
                             className={cn(
                               "flex-1 py-3 rounded-xl border text-sm font-medium transition-all capitalize",
                               watch('preferences.density') === density 
@@ -576,7 +582,9 @@ export default function ProfilePage() {
                       { key: 'preferences.notifications.security_alerts', title: 'Security Heartbeat', desc: 'Immediate alerts for access patterns and model anomalies' },
                       { key: 'preferences.notifications.system_updates', title: 'Kernel Updates', desc: 'Information about new OS features and architectural improvements' },
                       { key: 'preferences.notifications.in_app_notifications', title: 'Direct Interface Alerts', desc: 'Real-time pings for agent completions and memory associations' },
-                    ].map(item => (
+                    ].map(item => {
+                      const notifKey = item.key as 'preferences.notifications.email_digests' | 'preferences.notifications.security_alerts' | 'preferences.notifications.system_updates' | 'preferences.notifications.in_app_notifications';
+                      return (
                       <label key={item.key} className="flex items-center justify-between p-4 rounded-2xl bg-muted/20 border border-border hover:bg-muted/30 transition-colors cursor-pointer">
                         <div className="space-y-1">
                           <span className="text-sm font-bold">{item.title}</span>
@@ -584,21 +592,22 @@ export default function ProfilePage() {
                         </div>
                         <div 
                           onClick={() => {
-                            const current = watch(item.key as any)
-                            setValue(item.key as any, !current, { shouldDirty: true })
+                            const current = watch(notifKey)
+                            setValue(notifKey, !current, { shouldDirty: true })
                           }}
                           className={cn(
                             "w-12 h-6 rounded-full p-1 transition-colors relative",
-                            watch(item.key as any) ? "bg-primary" : "bg-muted"
+                            watch(notifKey) ? "bg-primary" : "bg-muted"
                           )}
                         >
                           <motion.div 
-                            animate={{ x: watch(item.key as any) ? 24 : 0 }}
+                            animate={{ x: watch(notifKey) ? 24 : 0 }}
                             className="w-4 h-4 bg-white rounded-full shadow-sm" 
                           />
                         </div>
                       </label>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
               </div>

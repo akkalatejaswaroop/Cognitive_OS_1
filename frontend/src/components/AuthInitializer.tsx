@@ -15,9 +15,10 @@ export function AuthInitializer({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (isAuthenticated) {
-      // The Firebase token is already in the access_token cookie (set by AuthContext)
-      // so we just need to call the backend to get the full profile
-      fetchMe();
+      const timer = setTimeout(() => {
+        fetchMe();
+      }, 100);
+      return () => clearTimeout(timer);
     }
   }, [fetchMe, isAuthenticated]);
 
