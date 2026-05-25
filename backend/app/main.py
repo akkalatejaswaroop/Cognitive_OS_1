@@ -1,79 +1,118 @@
+"""
+Cognitive OS — FastAPI Application Entry Point
+Six-agent multi-agent system: Orchestrator, Memory, Planning, Research, Execution, Summary.
+"""
 from contextlib import asynccontextmanager
-from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
-from app.core.config import settings
-from app.api.routes import auth, memory, agent, workspaces
-from app.api.websockets import router as ws_router
-from app.orchestration.bus import event_bus
-from app.services.llm import OllamaService
 import logging
 import os
+
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+
+from app.core.config import settings
+from app.api.routes import auth, memory, agent, workspaces
+from app.api.routes.workflows import router as workflows_router
+from app.api.websockets import router as ws_router
+from app.orchestration.bus import event_bus
 
 logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
+async def lifespan(fastapi_app: FastAPI):
     # ------------------------------------------------------------------ #
     #  Startup                                                            #
     # ------------------------------------------------------------------ #
+
+    # Start the event bus
     await event_bus.start()
 
-    # Verify Ollama connectivity
-    llm = OllamaService()
+    # Import tools package so built-in tools are registered
+    import app.tools  # noqa: F401
+
+    # Verify LLM backend
+    from app.llm.factory import get_llm_provider
+    provider = get_llm_provider()
     try:
-        models = await llm.list_models()
+        models = await provider.list_models()
         if models:
-            logger.info(f"Ollama is reachable. Available models: {models}")
+            logger.info(f"LLM backend ready. Models: {models[:3]}…")
         else:
             logger.warning(
-                "Ollama responded but returned no models. "
-                "Run `ollama pull llama3.2` to download a model."
+                "LLM backend reachable but returned no models. "
+                "Run `ollama pull llama3.2` or set OPENAI_API_KEY."
             )
-    except Exception as e:
+    except Exception as exc:
         logger.warning(
-            f"Ollama not reachable at startup ({e}). "
-            "Make sure `ollama serve` is running on port 11434."
+            f"LLM backend not reachable at startup ({exc}). "
+            "Agents will use fallback responses until backend is available."
         )
 
+    # ── Register all six agents ──────────────────────────────────────────
+    from app.agents.registry import AgentRegistry
     from app.agents.supervisor import SupervisorAgent
-    from app.agents.coder import CoderAgent
+    from app.agents.memory_agent import MemoryAgent
+    from app.agents.planning_agent import PlanningAgent
     from app.agents.research import ResearchAgent
-    app.state.supervisor = SupervisorAgent()  # Keep ref to prevent GC
-    app.state.coder = CoderAgent()
-    app.state.research = ResearchAgent()
-    logger.info("Cognitive OS Backend initialised successfully (Supervisor, Coder, Research agents loaded).")
+    from app.agents.execution_agent import ExecutionAgent
+    from app.agents.summary_agent import SummaryAgent
+    # Keep CoderAgent for backward compat (legacy topic: agent.coder-agent)
+    from app.agents.coder import CoderAgent
+
+    registry = AgentRegistry.get()
+
+    agents = [
+        SupervisorAgent(),
+        MemoryAgent(),
+        PlanningAgent(),
+        ResearchAgent(),
+        ExecutionAgent(),
+        SummaryAgent(),
+        CoderAgent(),           # legacy — topic: agent.coder-agent
+    ]
+
+    for agent_instance in agents:
+        registry.register(agent_instance)
+        fastapi_app.state.__dict__[agent_instance.name] = agent_instance
+
+    logger.info(
+        f"Cognitive OS started. Active agents: {registry.agent_names()}"
+    )
 
     yield
 
     # ------------------------------------------------------------------ #
     #  Shutdown                                                           #
     # ------------------------------------------------------------------ #
-    logger.info("Shutting down Cognitive OS Backend.")
+    for agent_instance in agents:
+        try:
+            await agent_instance.on_shutdown()
+        except Exception as exc:
+            logger.warning(f"Error shutting down {agent_instance.name}: {exc}")
+
+    logger.info("Cognitive OS shutdown complete.")
 
 
-from fastapi.staticfiles import StaticFiles
+# ── Static directories ───────────────────────────────────────────────────────
+for _dir in ["static", "static/avatars", "logs"]:
+    os.makedirs(_dir, exist_ok=True)
 
+# ── FastAPI app ──────────────────────────────────────────────────────────────
 app = FastAPI(
     title=settings.PROJECT_NAME,
     version=settings.VERSION,
     description=(
-        "Production-ready Backend API for the multi-agent Cognitive OS. "
-        "Powered by local Ollama inference."
+        "Production-ready Multi-Agent Backend for Cognitive OS. "
+        "Six-agent pipeline: Orchestrator → Memory → Planning → Research → Execution → Summary."
     ),
     lifespan=lifespan,
 )
 
-# Ensure static directory exists
-if not os.path.exists("static"):
-    os.makedirs("static")
-if not os.path.exists("static/avatars"):
-    os.makedirs("static/avatars")
-
-# Mount static files
+# ── Static files ─────────────────────────────────────────────────────────────
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
-# CORS — allow specific origins for local dev or production Vercel apps
+# ── CORS ─────────────────────────────────────────────────────────────────────
 origins = [
     "http://localhost:3000",
     "http://127.0.0.1:3000",
@@ -81,8 +120,8 @@ origins = [
     "http://127.0.0.1:3001",
 ]
 if getattr(settings, "ALLOWED_ORIGINS", ""):
-    extra_origins = [orig.strip() for orig in settings.ALLOWED_ORIGINS.split(",") if orig.strip()]
-    origins.extend(extra_origins)
+    extra = [o.strip() for o in settings.ALLOWED_ORIGINS.split(",") if o.strip()]
+    origins.extend(extra)
 
 app.add_middleware(
     CORSMiddleware,
@@ -92,59 +131,49 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# ------------------------------------------------------------------ #
-#  Routers                                                            #
-# ------------------------------------------------------------------ #
-app.include_router(auth.router,        prefix=f"{settings.API_V1_STR}/auth",       tags=["Authentication"])
-app.include_router(agent.router,       prefix=f"{settings.API_V1_STR}/agent",      tags=["Agent Orchestration"])
-app.include_router(memory.router,      prefix=f"{settings.API_V1_STR}/memory",     tags=["Memory & Vector Search"])
-app.include_router(ws_router,          prefix=f"{settings.API_V1_STR}/ws",         tags=["WebSockets"])
-app.include_router(workspaces.router,  prefix=f"{settings.API_V1_STR}/workspaces", tags=["Workspaces"])
+# ── Routers ──────────────────────────────────────────────────────────────────
+V1 = settings.API_V1_STR
+
+app.include_router(auth.router,        prefix=f"{V1}/auth",       tags=["Authentication"])
+app.include_router(agent.router,       prefix=f"{V1}/agent",      tags=["Agent Orchestration"])
+app.include_router(memory.router,      prefix=f"{V1}/memory",     tags=["Memory & Vector Search"])
+app.include_router(ws_router,          prefix=f"{V1}/ws",         tags=["WebSockets"])
+app.include_router(workspaces.router,  prefix=f"{V1}/workspaces", tags=["Workspaces"])
+app.include_router(workflows_router,   prefix=f"{V1}/workflows",  tags=["Workflows"])
 
 
-# ------------------------------------------------------------------ #
-#  System Routes                                                      #
-# ------------------------------------------------------------------ #
+# ── System routes ─────────────────────────────────────────────────────────────
+
 @app.get("/", tags=["System"])
 async def root():
+    from app.agents.registry import AgentRegistry
     return {
         "message": "Welcome to Cognitive OS API",
         "version": settings.VERSION,
-        "llm_backend": "Ollama (local)",
-        "ollama_url": settings.OLLAMA_BASE_URL,
-        "default_model": settings.OLLAMA_DEFAULT_MODEL,
+        "agents": AgentRegistry.get().agent_names(),
     }
 
 
 @app.get("/health", tags=["System"])
 async def health_check():
-    """Basic liveness probe."""
+    """Liveness probe."""
     return {"status": "healthy", "version": settings.VERSION}
 
 
-@app.get("/health/ollama", tags=["System"])
-async def ollama_health():
-    """Check Ollama reachability and list available models."""
-    llm = OllamaService()
+@app.get("/health/agents", tags=["System"])
+async def agent_health():
+    """Circuit-breaker states for all agents (no auth required — for monitoring)."""
+    from app.orchestration.circuit_breaker import circuit_registry
+    return {"agents": circuit_registry.all_states()}
+
+
+@app.get("/health/llm", tags=["System"])
+async def llm_health():
+    """LLM backend connectivity check."""
+    from app.llm.factory import get_llm_provider
+    provider = get_llm_provider()
     try:
-        models = await llm.list_models()
-        return {
-            "status": "reachable",
-            "ollama_url": settings.OLLAMA_BASE_URL,
-            "default_model": settings.OLLAMA_DEFAULT_MODEL,
-            "available_models": models,
-        }
-    except Exception as e:
-        return {
-            "status": "unreachable",
-            "error": str(e),
-            "hint": "Run `ollama serve` to start the local Ollama server.",
-        }
-
-
-@app.get(f"{settings.API_V1_STR}/ollama/models", tags=["Agent Orchestration"])
-async def list_ollama_models():
-    """Return all models available on the local Ollama instance."""
-    llm = OllamaService()
-    models = await llm.list_models()
-    return {"models": models}
+        models = await provider.list_models()
+        return {"status": "reachable", "backend": type(provider).__name__, "models": models}
+    except Exception as exc:
+        return {"status": "unreachable", "backend": type(provider).__name__, "error": str(exc)}

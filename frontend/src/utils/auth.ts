@@ -15,12 +15,25 @@ export async function getSessionUser(): Promise<AuthUser | null> {
     const cookieStore = await cookies()
     const tokenStr = cookieStore.get('access_token')?.value
     
-    if (!tokenStr) return null
+    if (!tokenStr) {
+      // MVP Bypass: Return a mock user if no session cookie exists
+      return {
+        id: 'mvp-user-id',
+        email: 'mvp@cognitive.os',
+        role: 'admin'
+      }
+    }
     
     // token format is typically "Bearer eyJhbGci..."
     const token = tokenStr.replace('Bearer ', '')
     const base64Url = token.split('.')[1]
-    if (!base64Url) return null
+    if (!base64Url) {
+      return {
+        id: 'mvp-user-id',
+        email: 'mvp@cognitive.os',
+        role: 'admin'
+      }
+    }
     
     const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/')
     const payload = JSON.parse(Buffer.from(base64, 'base64').toString('utf8'))
@@ -31,7 +44,12 @@ export async function getSessionUser(): Promise<AuthUser | null> {
       role: payload.role || 'user'
     }
   } catch {
-    return null
+    // MVP Bypass fallback
+    return {
+      id: 'mvp-user-id',
+      email: 'mvp@cognitive.os',
+      role: 'admin'
+    }
   }
 }
 

@@ -12,6 +12,100 @@ import uuid
 
 router = APIRouter()
 
+
+class FirebaseSyncIn(BaseModel):
+    id_token: str
+
+
+@router.post("/firebase-sync")
+def firebase_sync(response: Response, body: FirebaseSyncIn, db: Session = Depends(get_db)):
+    """
+    Exchange a Firebase ID token for backend httpOnly session cookies.
+    Called by the frontend after Firebase sign-in instead of writing document.cookie directly.
+    Auto-provisions users that don't exist yet in the local DB.
+    """
+    try:
+        import firebase_admin.auth
+        from firebase_admin import get_app, initialize_app, credentials as fb_credentials
+        import json as _json
+
+        # Ensure firebase_admin is initialised
+        try:
+            get_app()
+        except ValueError:
+            if settings.FIREBASE_SERVICE_ACCOUNT_JSON:
+                try:
+                    cred_dict = _json.loads(settings.FIREBASE_SERVICE_ACCOUNT_JSON)
+                    cred = fb_credentials.Certificate(cred_dict)
+                except _json.JSONDecodeError:
+                    cred = fb_credentials.Certificate(settings.FIREBASE_SERVICE_ACCOUNT_JSON)
+                initialize_app(cred)
+            else:
+                initialize_app()
+
+        decoded = firebase_admin.auth.verify_id_token(body.id_token)
+        firebase_uid: str = decoded["uid"]
+        email: str = decoded.get("email", "")
+        name: str = decoded.get("name") or (email.split("@")[0] if email else "")
+
+    except Exception as exc:
+        raise HTTPException(status_code=401, detail=f"Invalid Firebase token: {exc}")
+
+    # Look up or auto-provision the user
+    user = db.query(User).filter(User.firebase_uid == firebase_uid).first()
+    if not user and email:
+        user = db.query(User).filter(User.email == email).first()
+
+    if not user:
+        # First-time sign-in — create the user
+        user = User(
+            firebase_uid=firebase_uid,
+            email=email,
+            hashed_password=get_password_hash(uuid.uuid4().hex),
+            role="user",
+            name=name,
+        )
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+    elif not user.firebase_uid:
+        # Existing email-based user — link Firebase UID
+        user.firebase_uid = firebase_uid
+        db.commit()
+        db.refresh(user)
+
+    if not user.is_active:
+        raise HTTPException(status_code=403, detail="User account is disabled")
+
+    # Issue backend JWT cookies so all protected endpoints work
+    access_token = create_token(subject=user.id, token_type="access")
+    refresh_token_val = create_token(subject=user.id, token_type="refresh")
+
+    # Upsert session record
+    db_session = db.query(DBSession).filter(DBSession.user_id == user.id).first()
+    if db_session:
+        db_session.expires_at = datetime.utcnow() + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
+    else:
+        db_session = DBSession(
+            user_id=user.id,
+            expires_at=datetime.utcnow() + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS),
+        )
+        db.add(db_session)
+    db.commit()
+
+    set_auth_cookies(response, access_token, refresh_token_val)
+
+    return {
+        "message": "Session synchronised",
+        "user": {
+            "id": str(user.id),
+            "email": user.email,
+            "role": user.role,
+            "name": user.name,
+        },
+    }
+
+
 class UserCreate(BaseModel):
     email: str
     password: str
@@ -142,7 +236,14 @@ def login(response: Response, user_in: UserLogin, request: Request, db: Session 
 
     return {
         "message": "Login successful",
-        "user": user
+        "user": {
+            "id": str(user.id),
+            "email": user.email,
+            "role": user.role,
+            "name": user.name,
+            "avatar_url": user.avatar_url,
+            "is_active": user.is_active,
+        }
     }
 
 @router.post("/refresh")

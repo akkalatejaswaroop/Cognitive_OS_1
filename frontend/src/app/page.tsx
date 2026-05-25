@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   Terminal,
   Cpu,
@@ -102,6 +103,13 @@ const INITIAL_LOGS: TerminalLog[] = [
    ═══════════════════════════════════════════════════════════════ */
 
 export default function PremiumLandingPage() {
+  const router = useRouter();
+
+  useEffect(() => {
+    // MVP: Bypass landing page and go straight to dashboard
+    router.push("/dashboard");
+  }, [router]);
+
   const [terminalLogs, setTerminalLogs] = useState<TerminalLog[]>(INITIAL_LOGS);
   const [currentCmdInput, setCurrentCmdInput] = useState("");
   const [booting, setBooting] = useState(false);

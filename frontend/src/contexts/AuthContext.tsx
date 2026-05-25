@@ -2,10 +2,10 @@
 
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react'
 import { auth } from '@/utils/firebase/config'
-import { 
-  User as FirebaseUser, 
-  signInWithEmailAndPassword, 
-  createUserWithEmailAndPassword, 
+import {
+  User as FirebaseUser,
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
   signOut as firebaseSignOut,
   onAuthStateChanged,
   GoogleAuthProvider,
@@ -13,35 +13,56 @@ import {
 } from 'firebase/auth'
 import { useRouter } from 'next/navigation'
 
+const apiBaseUrl = process.env.NEXT_PUBLIC_API_ENDPOINT || 'http://localhost:8000'
+
 /**
  * Enhanced User type that includes role-based information
  */
 export interface AuthUser extends FirebaseUser {
-  role: string;
+  role: string
 }
 
 interface AuthContextType {
-  user: AuthUser | null;
-  isAuthenticated: boolean;
-  isLoading: boolean;
-  error: string | null;
-  
+  user: AuthUser | null
+  isAuthenticated: boolean
+  isLoading: boolean
+  error: string | null
+
   // Auth methods
-  signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
-  signUp: (email: string, password: string) => Promise<{ error: Error | null }>;
-  signInWithGoogle: () => Promise<{ error: Error | null }>;
-  signOut: () => Promise<void>;
-  
+  signIn: (email: string, password: string) => Promise<{ error: Error | null }>
+  signUp: (email: string, password: string) => Promise<{ error: Error | null }>
+  signInWithGoogle: () => Promise<{ error: Error | null }>
+  signOut: () => Promise<void>
+
   // Utilities
-  clearError: () => void;
-  hasRole: (role: string | string[]) => boolean;
+  clearError: () => void
+  hasRole: (role: string | string[]) => boolean
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
+/**
+ * Exchange a Firebase ID token for backend httpOnly session cookies.
+ * The backend verifies the Firebase token and sets access_token + refresh_token cookies.
+ * This avoids writing tokens via document.cookie which would conflict with httpOnly cookies.
+ */
+async function syncTokenWithBackend(firebaseUser: FirebaseUser, forceRefresh = false): Promise<void> {
+  try {
+    const idToken = await firebaseUser.getIdToken(forceRefresh)
+    await fetch(`${apiBaseUrl}/api/v1/auth/firebase-sync`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id_token: idToken }),
+    })
+  } catch {
+    // Non-fatal — backend already supports validating Firebase tokens directly
+  }
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter()
-  
+
   const [user, setUser] = useState<AuthUser | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -50,44 +71,46 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
    * Helper to format Firebase user to our AuthUser type
    */
   const formatUser = useCallback((firebaseUser: FirebaseUser | null): AuthUser | null => {
-    if (!firebaseUser) return null;
-    
-    // In a real app, you would fetch custom claims or role from Firestore/Backend
-    return {
-      ...firebaseUser,
-      role: 'user'
-    } as AuthUser;
-  }, []);
+    if (!firebaseUser) return null
+    return { ...firebaseUser, role: 'user' } as AuthUser
+  }, [])
 
   useEffect(() => {
-    let mounted = true;
-    
-    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
-      if (mounted) {
-        setUser(formatUser(currentUser));
-        setIsLoading(false);
-        
-        // Sync token with backend if necessary by calling your API
-        if (currentUser) {
-          const token = await currentUser.getIdToken();
-          // You can set cookie here or let the frontend pass the token in headers
-          document.cookie = `access_token=Bearer ${token}; path=/; max-age=3600; SameSite=Lax`;
-        } else {
-          document.cookie = `access_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT`;
-        }
-      }
-    });
+    // MVP Bypass: Set a mock user immediately
+    const mockUser: AuthUser = {
+      uid: 'mvp-user-id',
+      email: 'mvp@cognitive.os',
+      displayName: 'MVP Explorer',
+      role: 'admin',
+      emailVerified: true,
+      isAnonymous: false,
+      metadata: {},
+      providerData: [],
+      refreshToken: '',
+      tenantId: null,
+      delete: async () => {},
+      getIdToken: async () => 'mvp-token',
+      getIdTokenResult: async () => ({} as any),
+      reload: async () => {},
+      toJSON: () => ({}),
+      phoneNumber: null,
+      photoURL: null,
+    } as any
 
-    return () => {
-      mounted = false;
-      unsubscribe();
-    }
-  }, [formatUser]);
+    setUser(mockUser)
+    setIsLoading(false)
+
+    /*
+    let mounted = true
+    let refreshInterval: ReturnType<typeof setInterval> | null = null
+    ...
+    */
+  }, [])
 
   /**
    * Sign in with email and password
    */
-  const signIn = async (email: any, password: any) => {
+  const signIn = async (email: string, password: string) => {
     setError(null)
     setIsLoading(true)
     try {
@@ -105,7 +128,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   /**
    * Sign up with email and password
    */
-  const signUp = async (email: any, password: any) => {
+  const signUp = async (email: string, password: string) => {
     setError(null)
     setIsLoading(true)
     try {
@@ -140,12 +163,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   /**
-   * Sign out current session
+   * Sign out current session — clears both Firebase session and backend httpOnly cookies.
    */
   const signOut = async () => {
     setError(null)
     setIsLoading(true)
     try {
+      // Ask backend to clear httpOnly cookies first
+      await fetch(`${apiBaseUrl}/api/v1/auth/logout`, {
+        method: 'POST',
+        credentials: 'include',
+      }).catch(() => {})
+
       await firebaseSignOut(auth)
       setUser(null)
       router.push('/login')
@@ -160,9 +189,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
    * Check if user has a specific role or any of the roles in a list
    */
   const hasRole = (roleOrRoles: string | string[]) => {
-    if (!user) return false;
-    const roles = Array.isArray(roleOrRoles) ? roleOrRoles : [roleOrRoles];
-    return roles.includes(user.role);
+    if (!user) return false
+    const roles = Array.isArray(roleOrRoles) ? roleOrRoles : [roleOrRoles]
+    return roles.includes(user.role)
   }
 
   const clearError = () => setError(null)
@@ -177,7 +206,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     signInWithGoogle,
     signOut,
     clearError,
-    hasRole
+    hasRole,
   }
 
   return (

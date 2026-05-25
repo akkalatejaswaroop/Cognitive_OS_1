@@ -110,7 +110,7 @@ export default function ProfilePage() {
     }
   }, [user, reset])
 
-  const isSocialLogin = user?.app_metadata?.provider === 'google' || user?.app_metadata?.provider === 'github'
+  const isSocialLogin = (user as any)?.app_metadata?.provider === 'google' || (user as any)?.app_metadata?.provider === 'github'
 
   const onSubmit = async (data: ProfileFormValues) => {
     setIsSaving(true)

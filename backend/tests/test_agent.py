@@ -40,10 +40,10 @@ def test_execute_agent_task_success(client):
 
     # 4. Verify that the event was correctly published to the event bus
     assert not event_bus._queue.empty()
-    queued_event = event_bus._queue.get_nowait()
-    assert queued_event["topic"] == "agent.supervisor"
-    assert queued_event["payload"]["task"] == task_payload["task"]
-    assert queued_event["payload"]["task_id"] == res_data["task_id"]
+    _, queued_event = event_bus._queue.get_nowait()
+    assert queued_event.topic == "agent.supervisor"
+    assert queued_event.payload["task"] == task_payload["task"]
+    assert queued_event.payload["task_id"] == res_data["task_id"]
 
 @pytest.mark.asyncio
 async def test_supervisor_swarm_delegation():

@@ -11,16 +11,16 @@ class Settings(BaseSettings):
     API_V1_STR: str = "/api/v1"
 
     # Security
-    SECRET_KEY: str = "super-secret-key-change-in-production"
+    SECRET_KEY: str = ""
     ALGORITHM: str = "HS256"
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
 
     # Firebase Admin SDK credentials (path to JSON file or JSON string)
     FIREBASE_SERVICE_ACCOUNT_JSON: str = ""
 
-    # Postgres Database (Neon)
-    DATABASE_URL: str = "postgresql://neondb_owner:npg_o4ARTSGqsm0W@ep-mute-mountain-ak7nhohq-pooler.c-3.us-west-2.aws.neon.tech/neondb?sslmode=require"
+    # Postgres Database (Neon) — MUST be set via .env or environment variable
+    DATABASE_URL: str = ""
 
     # ChromaDB (vector store)
     VECTORDB_HOST: str = "localhost"
@@ -37,6 +37,27 @@ class Settings(BaseSettings):
     # Legacy key — kept so old .env files don't break pydantic-settings
     OPENROUTER_API_KEY: str = ""
 
+    # ── OpenAI ──────────────────────────────────────────────────────────── #
+    OPENAI_API_KEY: str = ""
+    OPENAI_DEFAULT_MODEL: str = "gpt-4o"
+
+    # ── IBM Granite (Watsonx.ai) ─────────────────────────────────────────── #
+    IBM_GRANITE_API_KEY: str = ""
+    IBM_GRANITE_PROJECT_ID: str = ""
+    IBM_GRANITE_ENDPOINT: str = "https://us-south.ml.cloud.ibm.com"
+    IBM_GRANITE_MODEL: str = "ibm/granite-3-3-8b-instruct"
+
+    # ── Agent orchestration ──────────────────────────────────────────────── #
+    AGENT_RETRY_MAX: int = 3
+    AGENT_TIMEOUT_SECONDS: int = 120
+    MAX_DELEGATION_DEPTH: int = 5
+    CIRCUIT_BREAKER_THRESHOLD: int = 3
+    CIRCUIT_BREAKER_RESET_SECONDS: int = 30
+
+    # ── Tools ────────────────────────────────────────────────────────────── #
+    TAVILY_API_KEY: str = ""
+    CODE_RUNNER_TIMEOUT_SECONDS: int = 10
+
     # CORS Allowed Origins (comma-separated list for production, e.g., https://my-app.vercel.app)
     ALLOWED_ORIGINS: str = ""
 
@@ -45,6 +66,16 @@ class Settings(BaseSettings):
 
 settings = Settings()
 
+# Validate required settings at import time
+if not settings.DATABASE_URL:
+    raise RuntimeError(
+        "DATABASE_URL is not set. Create a backend/.env file from backend/.env.example "
+        "or set the DATABASE_URL environment variable."
+    )
+if not settings.SECRET_KEY:
+    raise RuntimeError(
+        "SECRET_KEY is not set. Generate a strong random key and add it to your .env file."
+    )
 
 # --------------------------------------------------------------------------- #
 #  Logging                                                                    #
