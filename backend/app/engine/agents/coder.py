@@ -1,5 +1,5 @@
 import logging
-from app.agents.base import BaseAgent
+from app.engine.agents.base import BaseAgent
 from app.services.llm import OllamaService
 from app.core.config import settings
 

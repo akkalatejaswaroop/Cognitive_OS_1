@@ -57,7 +57,7 @@ from pydantic import BaseModel, Field
 # ── Internal ──────────────────────────────────────────────────────────────────
 from app.llm.factory import get_llm_provider
 from app.llm.base import LLMProvider
-from app.memory.chroma_store import ChromaStore
+from app.engine.memory.context.chroma_store import ChromaStore
 from app.orchestration.circuit_breaker import CircuitBreaker, CBState
 from app.prompts.orchestrator import ORCHESTRATOR_INTENT, ORCHESTRATOR_SYNTHESIS
 from app.prompts.planning import PLANNING_DECOMPOSE

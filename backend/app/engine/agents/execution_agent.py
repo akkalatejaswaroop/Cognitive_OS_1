@@ -10,7 +10,7 @@ import logging
 from enum import Enum
 from typing import Any, Callable, Awaitable
 
-from app.agents.base import BaseAgent
+from app.engine.agents.base import BaseAgent
 
 logger = logging.getLogger(__name__)
 
@@ -116,8 +116,13 @@ class ExecutionAgent(BaseAgent):
 
     async def execute(self, task: str, task_id: str | None = None) -> str:
         task_id = task_id or "default"
-        if task.upper().startswith("TOOL:"):
-            parts = task[5:].strip().split(":", 1)
+        
+        # Extract raw task from XML if present
+        from app.engine.prompts.builder import extract_xml_tag
+        raw_task = extract_xml_tag(task, "raw_input") or task
+        
+        if raw_task.upper().startswith("TOOL:"):
+            parts = raw_task[5:].strip().split(":", 1)
             command = parts[0].strip()
             kwargs = {}
             if len(parts) > 1:
@@ -127,7 +132,22 @@ class ExecutionAgent(BaseAgent):
                 except json.JSONDecodeError:
                     pass
             return str(await self.execute_task(task_id, command, **kwargs))
-        return f"Executed: {task}"
+        
+        # Workflow: email_drafting
+        sub_intent = extract_xml_tag(task, "sub_intent")
+        if sub_intent == "email_drafting":
+            return await self._draft_email(task)
+            
+        return f"Executed: {raw_task}"
+
+    async def _draft_email(self, enriched_task: str) -> str:
+        # For production, we'd use the LLM to draft the email based on the context.
+        # For now, we simulate a grounded draft.
+        from app.engine.prompts.builder import extract_xml_tag
+        raw_input = extract_xml_tag(enriched_task, "raw_input")
+        context = extract_xml_tag(enriched_task, "episodic")
+        
+        return f"DRAFT EMAIL:\nSubject: Re: {raw_input[:30]}...\nBody: Based on our recent context ({context[:50]}), I have prepared this draft..."
 
     async def execute_task(self, task_id: str, command: str, **kwargs) -> Any:
         """

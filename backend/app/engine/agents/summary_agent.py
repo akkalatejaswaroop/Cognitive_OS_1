@@ -15,7 +15,7 @@ from typing import Optional
 from openai import AsyncOpenAI
 from pydantic import BaseModel, Field
 
-from app.agents.base import BaseAgent
+from app.engine.agents.base import BaseAgent
 
 logger = logging.getLogger(__name__)
 
@@ -85,7 +85,18 @@ class SummaryAgent(BaseAgent):
         return self._client
 
     async def execute(self, task: str, task_id: str | None = None) -> str:
-        summary = await self.generate_summary(task)
+        # Extract raw task and sub_intent from XML if present
+        from app.engine.prompts.builder import extract_xml_tag
+        raw_text = extract_xml_tag(task, "raw_input") or task
+        sub_intent = extract_xml_tag(task, "sub_intent")
+        
+        summary_type = SummaryType.MEETING
+        if sub_intent == "document_summarization":
+            summary_type = SummaryType.TASK
+        elif sub_intent == "meeting_summary":
+            summary_type = SummaryType.MEETING
+            
+        summary = await self.generate_summary(raw_text, summary_type=summary_type)
         if summary is None:
             return "Failed to generate summary."
         return self.format_as_markdown(summary)

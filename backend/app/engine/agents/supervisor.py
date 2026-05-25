@@ -1,0 +1,344 @@
+"""
+Orchestrator Agent (SupervisorAgent) — routes, coordinates, and synthesises
+the full six-agent Cognitive OS pipeline.
+
+Upgrade from v1:
+  - Multi-intent routing (research / code / plan / memory / execute / summarise)
+  - TaskGraph execution via PlanningAgent for complex goals
+  - Memory context injection via MemoryAgent
+  - SummaryAgent for final output distillation
+  - Circuit-breaker awareness via BaseAgent
+"""
+import asyncio
+import json
+import logging
+import uuid
+from typing import Any
+
+from app.engine.agents.base import BaseAgent
+from app.llm.factory import get_llm_provider
+from app.orchestration.bus import event_bus
+from app.orchestration.task_graph import TaskGraphRunner
+from app.prompts.orchestrator import ORCHESTRATOR_INTENT, ORCHESTRATOR_SYNTHESIS
+from app.schemas.agent import SubTask, TaskGraph
+from app.engine.prompts.builder import MasterSystemPromptBuilder
+from app.engine.prompts.parser import UserPromptParser
+from app.engine.prompts.memory_injector import MemoryInjector
+from app.engine.prompts.validator import ResponseValidator
+from app.engine.router.core import AIWorkflowRouter
+from app.engine.router.schema import WorkflowType
+from app.engine.decision.engine import DecisionEngine
+from app.engine.safety.guardrail import HallucinationGuardrail
+from app.engine.optimization.optimizer import TokenOptimizer
+from app.engine.optimization.schema import ContextComponent
+from app.core.database import SessionLocal
+from app.services.user_service import UserService
+from app.engine.agents.registry import AgentRegistry
+
+logger = logging.getLogger(__name__)
+
+class SupervisorAgent(BaseAgent):
+    """
+    Central Orchestrator of Cognitive OS.
+
+    Uses the new Prompt Engineering System Architecture, AIWorkflowRouter, 
+    DecisionEngine, HallucinationGuardrail, and TokenOptimizer for high-fidelity 
+    reasoning, autonomous dispatching, safe grounded execution, and cost efficiency.
+    """
+
+    def __init__(self):
+        super().__init__(name="supervisor", role="Central Orchestrator")
+        self._llm = get_llm_provider()
+        self._prompt_parser = UserPromptParser()
+        self._memory_injector = MemoryInjector()
+        self._validator = ResponseValidator()
+        self._router = AIWorkflowRouter()
+        self._decision_engine = DecisionEngine()
+        self._guardrail = HallucinationGuardrail()
+        self._optimizer = TokenOptimizer()
+
+    # ------------------------------------------------------------------ #
+    #  Main execute                                                       #
+    # ------------------------------------------------------------------ #
+
+    async def execute(self, task: str, task_id: str | None = None) -> str:
+        task_id = task_id or str(uuid.uuid4())
+        parent_id = self._get_meta(task_id, "parent_id")
+        session_id = self._get_meta(task_id, "session_id") or "default"
+        user_id = self._get_meta(task_id, "user_id")
+
+        # ── 1. Route Intent & Workflow ──────────────────────────────────
+        await self.emit_status(task_id, "thinking", "Routing intent and detecting workflow…", parent_id=parent_id)
+        route = await self._router.route(task)
+        logger.info(f"[supervisor] Task {task_id} routed to {route.workflow_type} ({route.primary_agent})")
+
+        # ── 2. Fetch User Data & Memory ──────────────────────────────────
+        await self.emit_status(task_id, "thinking", f"Enriching context for '{route.intent}'…", parent_id=parent_id)
+        
+        user_profile = {}
+        if user_id:
+            try:
+                with SessionLocal() as db:
+                    user_service = UserService(db)
+                    user = user_service.get_user(user_id)
+                    if user:
+                        from app.schemas.user import UserProfileResponse
+                        user_profile = UserProfileResponse.model_validate(user).model_dump()
+            except Exception as e:
+                logger.error(f"Error fetching user profile: {e}")
+
+        # Fetch memory chunks using router's memory_query or raw task
+        memory_agent = AgentRegistry.get().get_agent("memory-agent")
+        episodic_chunks = []
+        if memory_agent:
+            # We bypass delegate_and_await for direct local call to get raw chunks
+            from app.engine.agents.memory_agent import MemoryAgent
+            if isinstance(memory_agent, MemoryAgent):
+                m_query = route.memory_query or task
+                episodic_chunks = await memory_agent.search_raw_chunks(m_query, user_id=user_id)
+
+        # ── 3. Optimize & Inject Memory ──────────────────────────────────
+        # Define components for optimization
+        components = [
+            ContextComponent(name="core", content=json.dumps(user_profile), priority=1),
+            ContextComponent(name="episodic", content="\n".join([c.get("content", "") for c in episodic_chunks]), priority=3, relevance_score=0.9),
+            # RAG/Knowledge components could be added here
+        ]
+        
+        # Apply token optimization
+        optimized_xml, opt_report = self._optimizer.optimize_context(components)
+        logger.info(f"[supervisor] Token optimization applied: {opt_report.reduction_percentage:.1f}% reduction")
+
+        memory_blocks = self._memory_injector.inject(
+            user_profile=user_profile,
+            session_memory="", # TODO: Implement session history retrieval
+            episodic_chunks=episodic_chunks,
+            knowledge_chunks=[], # TODO: Implement knowledge base RAG
+            longterm_summary="" # TODO: Implement LTM summarization
+        )
+        
+        memory_injection_xml = self._memory_injector.format_memory_injection(memory_blocks)
+
+        # ── 4. Decision Engine Evaluation ───────────────────────────────
+        await self.emit_status(task_id, "thinking", "Evaluating optimal path and prioritizing actions…", parent_id=parent_id)
+        decision = await self._decision_engine.evaluate(
+            task=task,
+            memory_context=memory_injection_xml,
+            user_profile=user_profile
+        )
+        logger.info(f"[supervisor] Decision: {decision.selected_action.description} (Priority: {decision.selected_action.priority.total_score})")
+
+        # ── 5. Parse User Prompt (with Decision Data) ───────────────────
+        user_prompt_xml = self._prompt_parser.parse(
+            raw_input=task,
+            classified_intent=route.intent,
+            intent_confidence=decision.context_confidence,
+            sub_intent=route.workflow_type.value,
+            metadata={
+                "channel": "api", 
+                "priority": decision.selected_action.priority.total_score,
+                "reasoning": decision.selected_action.reasoning
+            }
+        )
+
+        # ── 6. Build Master System Prompt ───────────────────────────────
+        prompt_builder = MasterSystemPromptBuilder(user_context={
+            "user_id": user_id,
+            "user_name": user_profile.get("full_name", "User")
+        })
+        
+        system_prompt = prompt_builder.assemble(
+            mode="COLLABORATIVE",
+            session_id=session_id,
+            memory_data={
+                "user_profile": json.dumps(user_profile, indent=2),
+                "episodic_memory": memory_blocks["episodic"],
+                "preferences": json.dumps(user_profile.get("preferences", {}), indent=2)
+            },
+            rag_data={
+                "context_block": memory_blocks["knowledge"],
+                "confidence_score": decision.context_confidence
+            }
+        )
+
+        # ── 7. Dispatch to Agent ────────────────────────────────────────
+        if route.workflow_type == WorkflowType.REMINDER or route.workflow_type == WorkflowType.CALENDAR:
+            # Special handling for reminders/planning
+            result = await self._run_planned_pipeline(task, task_id, parent_id)
+        else:
+            target_agent = decision.selected_action.agent_target
+            await self.emit_status(
+                task_id,
+                "thinking",
+                f"Executing {decision.selected_action.description} via {target_agent}…",
+                parent_id=parent_id,
+            )
+            # Enriched task includes the context injection.
+            enriched_task = f"{memory_injection_xml}\n\n{user_prompt_xml}"
+            result = await self.delegate_and_await(target_agent, enriched_task, task_id)
+
+        # ── 8. Synthesise final response ──────────────────────────────────
+        await self.emit_status(task_id, "thinking", "Synthesising final response…", parent_id=parent_id)
+        final = await self._synthesise(task, result, system_prompt)
+
+        # ── 9. Hallucination Guardrail Verification ─────────────────────
+        await self.emit_status(task_id, "thinking", "Verifying factual grounding and safety…", parent_id=parent_id)
+        safety_report = await self._guardrail.validate_output(final, memory_injection_xml)
+        
+        if not safety_report.is_safe:
+            logger.warning(f"[supervisor] Hallucination detected! Risk: {safety_report.hallucination_risk}")
+            final = safety_report.safe_fallback_response or "I'm sorry, I encountered a reliability issue."
+        elif safety_report.recommended_action == "QUALIFY":
+            final = f"[UNCERTAIN] {final}"
+
+        # ── 10. Store outcome in memory (fire and forget) ──────────────────
+        asyncio.create_task(
+            self._store_outcome(task, final, task_id, session_id, user_id)
+        )
+
+        return final
+
+    # ------------------------------------------------------------------ #
+    #  Planned pipeline (multi-step)                                     #
+    # ------------------------------------------------------------------ #
+
+    async def _run_planned_pipeline(
+        self, task: str, task_id: str, parent_id: str | None
+    ) -> str:
+        await self.emit_status(
+            task_id, "thinking", "Building task plan…", parent_id=parent_id
+        )
+
+        # Ask PlanningAgent to decompose the task
+        plan_json = await self.delegate_and_await("planning-agent", task, task_id)
+
+        try:
+            graph = TaskGraph.model_validate_json(plan_json)
+        except Exception as exc:
+            logger.warning(f"Could not parse TaskGraph: {exc}. Falling back to research.")
+            return await self.delegate_and_await("research-agent", task, task_id)
+
+        await self.emit_status(
+            task_id,
+            "thinking",
+            f"Executing {len(graph.subtasks)} planned subtask(s)…",
+            parent_id=parent_id,
+        )
+
+        # Execute the graph
+        runner = TaskGraphRunner(graph=graph, delegate_fn=self._delegate_subtask)
+        results = await runner.run()
+
+        # Aggregate all results for the SummaryAgent
+        aggregated = "\n\n".join(
+            f"### Step {i+1}: {st.description}\n{results.get(st.sub_task_id, 'No output')}"
+            for i, st in enumerate(graph.subtasks)
+        )
+
+        await self.emit_status(
+            task_id, "thinking", "Requesting summary…", parent_id=parent_id
+        )
+        return await self.delegate_and_await("summary-agent", aggregated, task_id)
+
+    async def _delegate_subtask(self, subtask: SubTask) -> str:
+        """Adapter used by TaskGraphRunner."""
+        return await self.delegate_and_await(
+            subtask.agent, subtask.description, subtask.sub_task_id
+        )
+
+    # ------------------------------------------------------------------ #
+    #  Delegation utilities                                               #
+    # ------------------------------------------------------------------ #
+
+    async def delegate_and_await(
+        self, sub_agent: str, sub_task: str, parent_task_id: str
+    ) -> str:
+        sub_task_id = f"{parent_task_id}-{uuid.uuid4().hex[:6]}"
+        future: asyncio.Future = asyncio.Future()
+
+        async def status_callback(payload: dict) -> None:
+            status = payload.get("status")
+            if status == "completed" and not future.done():
+                future.set_result(payload.get("result", ""))
+            elif status == "failed" and not future.done():
+                future.set_exception(
+                    Exception(payload.get("message", "Subtask failed"))
+                )
+
+        event_bus.subscribe(f"task.status.{sub_task_id}", status_callback)
+
+        try:
+            await event_bus.publish(f"agent.{sub_agent}", {
+                "task_id": sub_task_id,
+                "task": sub_task,
+                "parent_id": parent_task_id,
+            })
+            return await asyncio.wait_for(future, timeout=120.0)
+        except asyncio.TimeoutError:
+            logger.error(f"Sub-agent {sub_agent} timed out for task {sub_task_id}")
+            raise TimeoutError(f"Sub-agent {sub_agent} did not respond within 120 seconds.")
+        finally:
+            event_bus.unsubscribe(f"task.status.{sub_task_id}", status_callback)
+
+    # ── Legacy non-blocking delegate (backward compatibility) ────────────
+    async def delegate_task(
+        self, sub_agent: str, sub_task: str, parent_task_id: str
+    ) -> None:
+        sub_task_id = f"{parent_task_id}-{uuid.uuid4().hex[:6]}"
+        await event_bus.publish(f"agent.{sub_agent}", {
+            "task_id": sub_task_id,
+            "task": sub_task,
+            "parent_id": parent_task_id,
+        })
+
+    # ------------------------------------------------------------------ #
+    #  Memory integration                                                 #
+    # ------------------------------------------------------------------ #
+
+    async def _fetch_memory(
+        self, query: str, task_id: str, session_id: str, user_id: str | None
+    ) -> str:
+        try:
+            return await self.delegate_and_await(
+                "memory-agent", f"RECALL:{query}", task_id
+            )
+        except Exception as exc:
+            logger.warning(f"Memory recall failed: {exc}")
+            return ""
+
+    async def _store_outcome(
+        self,
+        original_task: str,
+        result: str,
+        task_id: str,
+        session_id: str,
+        user_id: str | None,
+    ) -> None:
+        try:
+            content = f"Task: {original_task}\nResult: {result[:500]}"
+            await event_bus.publish("agent.memory-agent", {
+                "task_id": f"{task_id}-mem-store",
+                "task": f"STORE:{content}",
+                "parent_id": task_id,
+                "user_id": user_id,
+                "session_id": session_id,
+            })
+        except Exception as exc:
+            logger.warning(f"Memory store after task failed: {exc}")
+
+    # ------------------------------------------------------------------ #
+    #  Synthesis                                                          #
+    # ------------------------------------------------------------------ #
+
+    async def _synthesise(self, original_task: str, agent_result: str, system_prompt: str | None = None) -> str:
+        try:
+            return await self._llm.generate(
+                prompt=(
+                    f"Original user request:\n{original_task}\n\n"
+                    f"Agent findings:\n{agent_result}"
+                ),
+                system=system_prompt or ORCHESTRATOR_SYNTHESIS,
+            )
+        except Exception as exc:
+            logger.warning(f"Synthesis LLM call failed: {exc}. Returning raw result.")
+            return agent_result

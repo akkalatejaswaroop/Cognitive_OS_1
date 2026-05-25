@@ -7,7 +7,7 @@ import logging
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from app.agents.base import BaseAgent
+    from app.engine.agents.base import BaseAgent
 
 logger = logging.getLogger(__name__)
 

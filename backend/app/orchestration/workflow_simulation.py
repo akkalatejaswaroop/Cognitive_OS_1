@@ -3,11 +3,11 @@ import logging
 import os
 import time
 
-from app.agents.planning_agent import PlanningAgent
-from app.agents.memory_agent import MemoryAgent
-from app.agents.research import ResearchAgent
-from app.agents.summary_agent import SummaryAgent, SummaryType
-from app.agents.execution_agent import ExecutionAgent
+from app.engine.agents.planning_agent import PlanningAgent
+from app.engine.agents.memory_agent import MemoryAgent
+from app.engine.agents.research import ResearchAgent
+from app.engine.agents.summary_agent import SummaryAgent, SummaryType
+from app.engine.agents.execution_agent import ExecutionAgent
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger("WorkflowSimulation")

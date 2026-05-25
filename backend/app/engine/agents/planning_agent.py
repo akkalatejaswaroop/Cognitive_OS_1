@@ -18,7 +18,7 @@ from pydantic import BaseModel, Field
 # To install: pip install openai
 from openai import AsyncOpenAI
 
-from app.agents.base import BaseAgent
+from app.engine.agents.base import BaseAgent
 from app.schemas.agent import TaskGraph, SubTask
 
 logger = logging.getLogger(__name__)
@@ -87,7 +87,12 @@ class PlanningAgent(BaseAgent):
 
     async def execute(self, task: str, task_id: str | None = None) -> str:
         tid = task_id or str(uuid.uuid4())
-        plan = await self.generate_plan(task)
+        
+        # Extract raw task from XML if present
+        from app.engine.prompts.builder import extract_xml_tag
+        raw_task = extract_xml_tag(task, "raw_input") or task
+        
+        plan = await self.generate_plan(raw_task)
         if plan is None:
             return TaskGraph(task_id=tid, subtasks=[]).model_dump_json()
 

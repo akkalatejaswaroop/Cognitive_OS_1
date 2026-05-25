@@ -11,7 +11,7 @@ from pydantic import BaseModel
 from app.api.deps import get_current_user
 from app.orchestration.bus import event_bus
 from app.orchestration.circuit_breaker import circuit_registry
-from app.agents.registry import AgentRegistry
+from app.engine.agents.registry import AgentRegistry
 
 router = APIRouter()
 

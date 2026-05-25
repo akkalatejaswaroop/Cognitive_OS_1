@@ -19,7 +19,7 @@ from langchain_community.tools.tavily_search import TavilySearchResults
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.documents import Document
 
-from app.agents.base import BaseAgent
+from app.engine.agents.base import BaseAgent
 
 logger = logging.getLogger(__name__)
 
@@ -184,7 +184,11 @@ class ResearchAgent(BaseAgent):
     # ------------------------------------------------------------------ #
 
     async def execute(self, task: str, task_id: str | None = None) -> str:
-        return await self.execute_research(task)
+        # Extract raw task from XML if present
+        from app.engine.prompts.builder import extract_xml_tag
+        raw_task = extract_xml_tag(task, "raw_input") or task
+        
+        return await self.execute_research(raw_task)
 
     async def execute_research(self, query: str, max_retries: int = 2) -> str:
         """

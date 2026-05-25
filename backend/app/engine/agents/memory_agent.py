@@ -10,7 +10,7 @@ import logging
 import uuid
 from typing import Any
 
-from app.agents.base import BaseAgent
+from app.engine.agents.base import BaseAgent
 from app.core.database import chroma_client
 from app.llm.factory import get_llm_provider
 from app.llm.base import LLMProvider
@@ -49,16 +49,22 @@ class MemoryAgent(BaseAgent):
             logger.warning("ChromaDB client is unavailable. MemoryAgent will operate in no-op mode.")
 
     async def execute(self, task: str, task_id: str | None = None) -> str:
-        if task.upper().startswith("RECALL:"):
-            query = task[7:].strip()
+        # Extract raw task from XML if present
+        from app.engine.prompts.builder import extract_xml_tag
+        raw_task = extract_xml_tag(task, "raw_input") or task
+        
+        if raw_task.upper().startswith("RECALL:"):
+            query = raw_task[7:].strip()
             return await self.search_context(query, synthesize=True)
-        elif task.upper().startswith("STORE:"):
-            content = task[6:].strip()
+        elif raw_task.upper().startswith("STORE:"):
+            content = raw_task[6:].strip()
             memory_id = await self.save_memory(content)
             if memory_id:
                 return f"Memory stored (id: {memory_id[:8]})."
             return "Failed to store memory (ChromaDB unavailable)."
-        return await self.search_context(task, synthesize=True)
+        
+        # Default behavior: search context
+        return await self.search_context(raw_task, synthesize=True)
 
     # ------------------------------------------------------------------ #
     #  1. save_memory                                                    #
@@ -130,6 +136,45 @@ class MemoryAgent(BaseAgent):
     # ------------------------------------------------------------------ #
     #  3. search_context                                                 #
     # ------------------------------------------------------------------ #
+    async def search_raw_chunks(
+        self,
+        query: str,
+        user_id: str | None = None,
+        top_k: int = 5
+    ) -> list[dict[str, Any]]:
+        """
+        Perform a semantic similarity search and return raw chunks as dictionaries.
+        """
+        if not self._collection:
+            return []
+
+        try:
+            where = {"user_id": user_id} if user_id else None
+            results = self._collection.query(
+                query_texts=[query],
+                n_results=top_k,
+                where=where,
+                include=["documents", "metadatas", "distances"]
+            )
+
+            ids = results.get("ids", [[]])[0]
+            docs = results.get("documents", [[]])[0]
+            metas = results.get("metadatas", [[]])[0]
+            distances = results.get("distances", [[]])[0]
+
+            chunks = []
+            for i in range(len(ids)):
+                chunks.append({
+                    "id": ids[i],
+                    "content": docs[i],
+                    "metadata": metas[i],
+                    "distance": distances[i]
+                })
+            return chunks
+        except Exception as exc:
+            logger.error(f"Error during raw chunk search: {exc}")
+            return []
+
     async def search_context(
         self, 
         query: str, 

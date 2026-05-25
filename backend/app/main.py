@@ -13,6 +13,8 @@ from fastapi.staticfiles import StaticFiles
 from app.core.config import settings
 from app.api.routes import auth, memory, agent, workspaces
 from app.api.routes.workflows import router as workflows_router
+from app.api.routes.engine import routes as engine_routes
+from app.api.routes.engine import automation as automation_routes
 from app.api.websockets import router as ws_router
 from app.orchestration.bus import event_bus
 
@@ -50,15 +52,15 @@ async def lifespan(fastapi_app: FastAPI):
         )
 
     # ── Register all six agents ──────────────────────────────────────────
-    from app.agents.registry import AgentRegistry
-    from app.agents.supervisor import SupervisorAgent
-    from app.agents.memory_agent import MemoryAgent
-    from app.agents.planning_agent import PlanningAgent
-    from app.agents.research import ResearchAgent
-    from app.agents.execution_agent import ExecutionAgent
-    from app.agents.summary_agent import SummaryAgent
+    from app.engine.agents.registry import AgentRegistry
+    from app.engine.agents.supervisor import SupervisorAgent
+    from app.engine.agents.memory_agent import MemoryAgent
+    from app.engine.agents.planning_agent import PlanningAgent
+    from app.engine.agents.research import ResearchAgent
+    from app.engine.agents.execution_agent import ExecutionAgent
+    from app.engine.agents.summary_agent import SummaryAgent
     # Keep CoderAgent for backward compat (legacy topic: agent.coder-agent)
-    from app.agents.coder import CoderAgent
+    from app.engine.agents.coder import CoderAgent
 
     registry = AgentRegistry.get()
 
@@ -140,13 +142,15 @@ app.include_router(memory.router,      prefix=f"{V1}/memory",     tags=["Memory 
 app.include_router(ws_router,          prefix=f"{V1}/ws",         tags=["WebSockets"])
 app.include_router(workspaces.router,  prefix=f"{V1}/workspaces", tags=["Workspaces"])
 app.include_router(workflows_router,   prefix=f"{V1}/workflows",  tags=["Workflows"])
+app.include_router(engine_routes.router, prefix=f"{V1}",           tags=["Cognitive Engine"])
+app.include_router(automation_routes.router, prefix=f"{V1}",      tags=["Workflow Automation"])
 
 
 # ── System routes ─────────────────────────────────────────────────────────────
 
 @app.get("/", tags=["System"])
 async def root():
-    from app.agents.registry import AgentRegistry
+    from app.engine.agents.registry import AgentRegistry
     return {
         "message": "Welcome to Cognitive OS API",
         "version": settings.VERSION,
