@@ -171,7 +171,6 @@ class EventBus:
         logger.info("Inter-Agent Event Bus stopped.")
 
     async def _process_events(self):
-<<<<<<< HEAD
         """Continuously pulls messages from the queue and routes them to subscribers."""
         while self.is_running:
             try:
@@ -195,23 +194,6 @@ class EventBus:
                 break
             except Exception as e:
                 logger.error(f"Event Loop encountered a critical error: {e}")
-=======
-        while True:
-            event = await self._queue.get()
-            topic = event["topic"]
-            payload = event["payload"]
-            
-            if topic in self.subscribers:
-                for callback in self.subscribers[topic]:
-                    task = asyncio.create_task(callback(payload))
-                    task.add_done_callback(
-                        lambda t: logger.error(
-                            f"Error in subscriber for topic {topic}: {t.exception()}"
-                        ) if t.exception() else None
-                    )
-            
-            self._queue.task_done()
->>>>>>> 21f0c57abc3538abed3e18d3cc08fcb4140114f9
 
 # Global singleton Event Bus
 event_bus = EventBus()
