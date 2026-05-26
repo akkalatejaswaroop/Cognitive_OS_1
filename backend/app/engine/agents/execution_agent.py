@@ -11,6 +11,9 @@ from enum import Enum
 from typing import Any, Callable, Awaitable
 
 from app.engine.agents.base import BaseAgent
+from app.llm.factory import get_llm_provider
+from app.engine.prompts.email import EMAIL_DRAFTING_SYSTEM_PROMPT, EMAIL_DRAFTING_USER_PROMPT
+from app.engine.prompts.builder import extract_xml_tag
 
 logger = logging.getLogger(__name__)
 
@@ -82,6 +85,7 @@ class ExecutionAgent(BaseAgent):
     def __init__(self):
         super().__init__(name="execution-agent", role="Workflow Executor")
         self.state_manager = ExecutionState()
+        self._llm = get_llm_provider()
         
         # Registry mapping task commands to async functions
         self._tools: dict[str, Callable[..., Awaitable[Any]]] = {
@@ -118,7 +122,6 @@ class ExecutionAgent(BaseAgent):
         task_id = task_id or "default"
         
         # Extract raw task from XML if present
-        from app.engine.prompts.builder import extract_xml_tag
         raw_task = extract_xml_tag(task, "raw_input") or task
         
         if raw_task.upper().startswith("TOOL:"):
@@ -135,19 +138,38 @@ class ExecutionAgent(BaseAgent):
         
         # Workflow: email_drafting
         sub_intent = extract_xml_tag(task, "sub_intent")
-        if sub_intent == "email_drafting":
+        if sub_intent == "email_drafting" or "draft" in raw_task.lower():
             return await self._draft_email(task)
             
         return f"Executed: {raw_task}"
 
     async def _draft_email(self, enriched_task: str) -> str:
-        # For production, we'd use the LLM to draft the email based on the context.
-        # For now, we simulate a grounded draft.
-        from app.engine.prompts.builder import extract_xml_tag
-        raw_input = extract_xml_tag(enriched_task, "raw_input")
-        context = extract_xml_tag(enriched_task, "episodic")
+        """
+        AI-powered email drafting with context awareness.
+        """
+        logger.info("Generating professional email draft via LLM...")
         
-        return f"DRAFT EMAIL:\nSubject: Re: {raw_input[:30]}...\nBody: Based on our recent context ({context[:50]}), I have prepared this draft..."
+        meeting_notes = extract_xml_tag(enriched_task, "meeting_notes") or "No notes provided."
+        user_intent = extract_xml_tag(enriched_task, "raw_input") or "Draft a follow-up email."
+        episodic_memory = extract_xml_tag(enriched_task, "episodic") or "No prior context."
+        tone = extract_xml_tag(enriched_task, "tone") or "Professional"
+
+        # Hydrate system prompt
+        system_prompt = EMAIL_DRAFTING_SYSTEM_PROMPT.replace("{{meeting_notes}}", meeting_notes) \
+                                                    .replace("{{user_intent}}", user_intent) \
+                                                    .replace("{{episodic_memory}}", episodic_memory) \
+                                                    .replace("{{tone}}", tone)
+
+        try:
+            response = await self._llm.generate(
+                prompt=EMAIL_DRAFTING_USER_PROMPT,
+                system=system_prompt,
+                temperature=0.3 # Precision over creativity
+            )
+            return response
+        except Exception as e:
+            logger.error(f"Email drafting failed: {e}")
+            return f"Error generating draft: {str(e)}"
 
     async def execute_task(self, task_id: str, command: str, **kwargs) -> Any:
         """

@@ -1,0 +1,9 @@
+graph LR
+    A[APScheduler] --> B[AutomationScheduler.poll_tasks]
+    B --> C{Scan scheduled_tasks}
+    C -- Due --> D[Create WorkflowHistory]
+    D --> E[Start EnhancedWorkflowExecutor]
+    E --> F[Update next_run_at: Cron/Adaptive]
+    F --> G[Adaptive learning: interact feedback]
+    G --> H[Update smart_priority_score]
+    H --> B

@@ -1,0 +1,19 @@
+graph TD
+    A[Trigger: Prompt/Webhook] --> B[WorkflowAutomationService]
+    B --> C[PlanningAgent: LLM]
+    C --> D[Task DAG Generation]
+    D --> E[WorkflowHistory: PENDING]
+    E --> F[EnhancedWorkflowExecutor]
+    
+    subgraph Execution Loop
+    F --> G{Ready Nodes?}
+    G -- Yes --> H[Parallel Execution: asyncio.gather]
+    H --> I[Agent clusters: Research/Exec/Summary]
+    I --> J[AutomationLog Entry]
+    J --> K[Variable Injection]
+    K --> G
+    G -- No --> L[Terminal State: COMPLETED/FAILED]
+    end
+    
+    L --> M[System Notification]
+    L --> N[User Dashboard Update]

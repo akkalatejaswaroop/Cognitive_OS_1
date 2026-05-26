@@ -12,25 +12,25 @@ from app.engine.router.heuristics import heuristic_classify
 logger = logging.getLogger(__name__)
 
 ROUTER_SYSTEM_PROMPT = """
-You are the Cognitive OS Workflow Router. Your job is to analyze user input and 
-route it to the correct specialized workflow and agent.
+You are the Cognitive OS Intelligence Router. Your mission is to map user intent 
+to the most efficient specialized workflow.
 
-Available Workflows:
-- meeting_summary: For distilling transcripts or meeting notes.
-- email_drafting: For writing, replying, or editing emails.
-- reminder_generation: For setting alerts, tasks, or follow-ups.
-- research_assistant: For deep dives, fact-checking, or topic analysis.
-- productivity_analytics: For reviewing usage patterns or goals.
-- memory_retrieval: For asking "what did I say" or "remember when."
-- calendar_planning: For scheduling, checking availability, or event planning.
-- document_summarization: For condensing large files or articles.
-- general_query: For everything else.
+### WORKFLOW REGISTRY:
+1. meeting_summary: Distilling meetings, identifying participants and action items.
+2. email_drafting: Creating professional outreach, replies, or internal comms.
+3. reminder_generation: Temporal tasks, deadline prediction, and alerts.
+4. research_assistant: Web search, code analysis, deep dives into topics.
+5. productivity_optimization: Analyzing user habits or goal alignment.
+6. memory_retrieval: Searching past interactions or history.
+7. general_query: Fallback for unclassified requests.
 
-Output EXACTLY JSON in this format:
+### OUTPUT FORMAT (JSON):
 {
-  "intent": "brief explanation",
-  "workflow_type": "one of the above keys",
-  "memory_query": "search query for RAG (optional)",
+  "intent_id": "string_slug",
+  "workflow": "key_from_registry",
+  "confidence": 0.0-1.0,
+  "requires_memory": true/false,
+  "reasoning": "one-sentence technical justification",
   "priority": 1-5
 }
 """
@@ -42,12 +42,12 @@ class AIWorkflowRouter:
     async def route(self, task: str) -> WorkflowRoute:
         """
         Classifies intent and returns a structured route.
-        Uses heuristics first for performance, then LLM.
+        Decision Tree: Heuristics -> Semantic (LLM) -> Confidence Check -> Fallback.
         """
-        # 1. Fast Path (Heuristics)
+        # 1. Tier 1: Heuristics (Fast-Path)
         h_type = heuristic_classify(task)
         if h_type:
-            logger.info(f"Router: Fast-path hit -> {h_type}")
+            logger.info(f"Router: Tier 1 Hit (Heuristic) -> {h_type}")
             return WorkflowRoute(
                 intent="Heuristic match",
                 workflow_type=h_type,
@@ -55,7 +55,7 @@ class AIWorkflowRouter:
                 priority=3
             )
 
-        # 2. Semantic Path (LLM)
+        # 2. Tier 2: Semantic Classification
         try:
             raw_response = await self._llm.generate(
                 prompt=task,
@@ -63,22 +63,28 @@ class AIWorkflowRouter:
                 temperature=0.0
             )
             
-            # Clean and parse JSON
             data = self._parse_json(raw_response)
+            confidence = data.get("confidence", 0.0)
+            w_key = data.get("workflow", "general_query")
             
-            w_type = WorkflowType(data.get("workflow_type", "general_query"))
+            # Tier 3: Confidence Check
+            if confidence < 0.7:
+                logger.warning(f"Router: Low confidence ({confidence}) for '{w_key}'. Scaling to refinement.")
+                w_key = "general_query"
+
+            w_type = WorkflowType(w_key)
             
             return WorkflowRoute(
-                intent=data.get("intent", "Unknown intent"),
+                intent=data.get("intent_id", "Unknown intent"),
                 workflow_type=w_type,
                 primary_agent=AGENT_MAPPING.get(w_type),
-                memory_query=data.get("memory_query"),
+                memory_query=task if data.get("requires_memory") else None,
                 priority=data.get("priority", 3)
             )
             
         except Exception as e:
-            logger.error(f"Router failed: {e}")
-            # Fallback
+            logger.error(f"Router Tier 2 Failed: {e}")
+            # Tier 4: Terminal Fallback
             return WorkflowRoute(
                 intent="Fallback due to error",
                 workflow_type=WorkflowType.GENERAL_QUERY,

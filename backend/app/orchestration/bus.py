@@ -96,6 +96,17 @@ class EventBus:
         self._subscribers[topic].append(callback)
         logger.info(f"Subscribed callback to topic: '{topic}'")
 
+    def unsubscribe(self, topic: str, callback: Callable[[AgentMessage], Awaitable[None]]):
+        """Unregister a callback from a specific topic."""
+        if topic in self._subscribers:
+            try:
+                self._subscribers[topic].remove(callback)
+                if not self._subscribers[topic]:
+                    del self._subscribers[topic]
+                logger.info(f"Unsubscribed callback from topic: '{topic}'")
+            except ValueError:
+                logger.warning(f"Callback not found in topic '{topic}'.")
+
     async def publish(
         self,
         topic_or_message: str | AgentMessage,

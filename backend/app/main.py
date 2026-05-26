@@ -15,8 +15,15 @@ from app.api.routes import auth, memory, agent, workspaces
 from app.api.routes.workflows import router as workflows_router
 from app.api.routes.engine import routes as engine_routes
 from app.api.routes.engine import automation as automation_routes
+from app.api.routes.engine import email_engine as email_routes
+from app.api.routes import reminders as reminder_routes
+from app.api.routes import analytics as analytics_routes
+from app.api.routes import knowledge as knowledge_routes
 from app.api.websockets import router as ws_router
 from app.orchestration.bus import event_bus
+from app.core.middleware import LoggingMiddleware
+from app.core.exceptions import global_exception_handler
+from app.scheduler.worker import automation_scheduler
 
 logger = logging.getLogger(__name__)
 
@@ -29,6 +36,9 @@ async def lifespan(fastapi_app: FastAPI):
 
     # Start the event bus
     await event_bus.start()
+
+    # Start the temporal scheduler
+    automation_scheduler.start()
 
     # Import tools package so built-in tools are registered
     import app.tools  # noqa: F401
@@ -87,6 +97,9 @@ async def lifespan(fastapi_app: FastAPI):
     # ------------------------------------------------------------------ #
     #  Shutdown                                                           #
     # ------------------------------------------------------------------ #
+    # Stop the scheduler
+    automation_scheduler.shutdown()
+
     for agent_instance in agents:
         try:
             await agent_instance.on_shutdown()
@@ -110,6 +123,10 @@ app = FastAPI(
     ),
     lifespan=lifespan,
 )
+
+# ── Middleware & Exception Handlers ──────────────────────────────────────────
+app.add_middleware(LoggingMiddleware)
+app.add_exception_handler(Exception, global_exception_handler)
 
 # ── Static files ─────────────────────────────────────────────────────────────
 app.mount("/static", StaticFiles(directory="static"), name="static")
@@ -144,6 +161,10 @@ app.include_router(workspaces.router,  prefix=f"{V1}/workspaces", tags=["Workspa
 app.include_router(workflows_router,   prefix=f"{V1}/workflows",  tags=["Workflows"])
 app.include_router(engine_routes.router, prefix=f"{V1}",           tags=["Cognitive Engine"])
 app.include_router(automation_routes.router, prefix=f"{V1}",      tags=["Workflow Automation"])
+app.include_router(email_routes.router, prefix=f"{V1}",           tags=["Email Engine"])
+app.include_router(reminder_routes.router, prefix=f"{V1}",        tags=["Smart Reminders"])
+app.include_router(analytics_routes.router, prefix=f"{V1}",       tags=["Automation Analytics"])
+app.include_router(knowledge_routes.router, prefix=f"{V1}",       tags=["Knowledge Capture"])
 
 
 # ── System routes ─────────────────────────────────────────────────────────────

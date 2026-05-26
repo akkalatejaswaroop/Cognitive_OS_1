@@ -1,107 +1,77 @@
-# Cognitive OS — AI Workflow Router Design
+"""
+AI Workflow Router Logic System for Cognitive OS.
 
-## 1. Routing Architecture
-The Router operates as a **Mediator & Traffic Controller** between the User Input Layer and the Agent Execution Layer. It uses a **Hybrid Classifier** (LLM + Heuristics) to ensure zero-latency routing for known keywords and high-fidelity reasoning for ambiguous requests.
+This document specifies the routing tiers, classification logic, 
+and multi-agent dispatch patterns.
+"""
 
-```mermaid
-graph TD
-    A[User Input] --> B[Intent Classifier]
-    B --> C{Workflow Detector}
-    C -->|Meeting| D[Summary Agent]
-    C -->|Email| E[Execution Agent]
-    C -->|Research| F[Research Agent]
-    C -->|Memory| G[Memory Agent]
-    C -->|Complex| H[Planning Agent]
-    D & E & F & G & H --> I[Response Synthesizer]
-    I --> J[Final Output]
-```
+# ============================================================================ #
+#  1. ROUTING DECISION TREE
+# ============================================================================ #
 
-## 2. Intent Classification Logic
-We use a **Two-Pass Classification**:
-1. **Pass 1 (Heuristic):** Regex-based fast path for common keywords (e.g., "remind me", "search for").
-2. **Pass 2 (Semantic):** LLM-based parsing using a structured JSON schema to extract `workflow_type`, `priority`, and `memory_query`.
+"""
+Tier 1: Heuristic Fast-Path (Latency: < 5ms)
+  - Regex-based matching for unambiguous keywords (e.g., "remind me", "draft email").
+  - Outcome: Direct dispatch or pass to Tier 2.
 
-## 3. Decision Tree
-```text
-IF "remind me" OR "at [time]" -> reminder_generation
-ELSE IF "summarize" AND "doc" -> document_summarization
-ELSE IF "what did I say" OR "recall" -> memory_retrieval
-ELSE IF "research" OR "explain" -> research_assistant
-ELSE -> LLM intent classification
-```
+Tier 2: Semantic Intent Classification (Latency: 500ms - 1.5s)
+  - LLM-powered analysis using `ROUTER_SYSTEM_PROMPT`.
+  - Confidence Scoring: LLM evaluates its own certainty (0.0 - 1.0).
+  - Outcome: Workflow selection with memory query injection.
 
-## 4. API Flow
-1. `POST /api/v1/agent/execute` -> { task, session_id }
-2. `Supervisor` invokes `AIWorkflowRouter.route(task)`
-3. `Router` returns `WorkflowRoute` { agent, priority, memory_query }
-4. `Supervisor` triggers RAG via `memory_query`
-5. `Supervisor` dispatches to `primary_agent`
-6. `Agent` returns result -> `Supervisor` synthesizes final output.
+Tier 3: Collaborative Refinement (Latency: Variable)
+  - Used if Tier 2 confidence < 0.7.
+  - Action: Query the `PlanningAgent` to clarify intent or multi-route.
 
-## 5. TypeScript Backend Structure
-```typescript
-// frontend/src/types/workflow.ts
+Tier 4: Fallback (Terminal)
+  - Outcome: `general_query` routed to ResearchAgent.
+"""
 
-export enum WorkflowType {
-  MEETING_SUMMARY = "meeting_summary",
-  EMAIL_DRAFTING = "email_drafting",
-  REMINDER_GENERATION = "reminder_generation",
-  RESEARCH_ASSISTANT = "research_assistant",
-  PRODUCTIVITY_ANALYTICS = "productivity_analytics",
-  MEMORY_RETRIEVAL = "memory_retrieval",
-  CALENDAR_PLANNING = "calendar_planning",
-  DOCUMENT_SUMMARIZATION = "document_summarization",
-  GENERAL_QUERY = "general_query",
-}
+# ============================================================================ #
+#  2. ENHANCED ROUTING PROMPT
+# ============================================================================ #
 
-export interface WorkflowRoute {
-  intent: string;
-  workflowType: WorkflowType;
-  primaryAgent: string;
-  priority: number;
-  memoryQuery?: string;
-}
-```
+ENHANCED_ROUTER_PROMPT = """
+You are the Cognitive OS Intelligence Router. Your mission is to map user intent 
+to the most efficient specialized workflow.
 
-## 6. FastAPI Implementation Structure
-- `app/orchestration/router/core.py`: Intent classification logic.
-- `app/orchestration/router/schema.py`: Pydantic models & Enums.
-- `app/orchestration/router/heuristics.py`: Fast-path regex rules.
+### WORKFLOW REGISTRY:
+1. **meeting_summary:** Distilling meetings, identifying participants and action items.
+2. **email_drafting:** Creating professional outreach, replies, or internal comms.
+3. **reminder_generation:** Temporal tasks, deadline prediction, and context-aware alerts.
+4. **research_assistant:** Web search, code analysis, deep dives into complex topics.
+5. **productivity_optimization:** Analyzing user habits, token usage, or goal alignment.
+6. **memory_retrieval:** Searching past interactions, facts about the user, or history.
 
-## 7. Agent Mapping Schema
-```json
+### ROUTING LOGIC:
+- If the user asks about the future or time -> **reminder_generation**.
+- If the user asks about the past or "what did I" -> **memory_retrieval**.
+- If the request involves people and messaging -> **email_drafting**.
+- If the request involves "how to" or data gathering -> **research_assistant**.
+
+### OUTPUT (JSON):
 {
-  "meeting_summary": "summary-agent",
-  "email_drafting": "execution-agent",
-  "reminder_generation": "planning-agent",
-  "research_assistant": "research-agent",
-  "memory_retrieval": "memory-agent",
-  "calendar_planning": "planning-agent",
-  "document_summarization": "summary-agent"
+  "intent_id": "string_slug",
+  "workflow": "key_from_registry",
+  "confidence": 0.0-1.0,
+  "requires_memory": true/false,
+  "reasoning": "one-sentence technical justification",
+  "priority": 1-5
 }
-```
+"""
 
-## 8. Example Request/Response
-**Request:** "Draft an email to Sarah about the meeting tomorrow at 10am."
-**Router Output:**
-```json
-{
-  "intent": "Draft a business email with calendar context",
-  "workflow_type": "email_drafting",
-  "primary_agent": "execution-agent",
-  "memory_query": "Sarah meeting tomorrow 10am",
-  "priority": 2
-}
-```
+# ============================================================================ #
+#  3. MULTI-AGENT ROUTING LOGIC
+# ============================================================================ #
 
-## 9. Error Fallback System
-1. **Classifier Error:** Fallback to `general_query` handled by `research-agent`.
-2. **Timeout:** If LLM classification > 5s, use Heuristic fallback.
-3. **Agent Busy:** Circuit breaker kicks in -> return partial result + "retry" suggestion.
-4. **Validation Error:** Return raw input to `supervisor` with `priority: 3`.
+"""
+The Router doesn't just pick a workflow; it prepares the specialized agent's context.
 
-## 10. Scalability Strategy
-- **Caching:** Cache common intent-to-agent mappings in Redis.
-- **Async Execution:** All routing logic is non-blocking (async/await).
-- **Horizontal Scaling:** Routers are stateless; deploy as microservices.
-- **Model Routing:** Use a small, fast model (e.g., Llama-3.2-3B) for routing and a large model (GPT-4o) for execution.
+1.  **Memory Injection:** If `requires_memory` is true, the Router generates a 
+    vector search query BEFORE dispatching to the target agent.
+2.  **Priority Queuing:** High priority (1-2) tasks skip the standard EventBus 
+    buffer and are processed by reserved 'Hot Worker' threads.
+3.  **Parallel Routing:** If an intent spans multiple workflows (e.g., "Summarize 
+    meeting AND set reminders"), the Router emits multiple events to the bus 
+    simultaneously.
+"""

@@ -181,6 +181,48 @@ class Memory(Base):
     user = relationship("User", back_populates="memories")
     conversation = relationship("Conversation", back_populates="memories")
 
+class KnowledgeEntry(Base):
+    """
+    The canonical record for captured knowledge (Voice, Text, Documents).
+    Tracks the ingestion lifecycle and links to AI insights.
+    """
+    __tablename__ = "knowledge_entries"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    source_type = Column(String(50), nullable=False, index=True) # voice, text, document, meeting
+    title = Column(String(255), nullable=True)
+    raw_content = Column(Text, nullable=True)
+    content_url = Column(String(500), nullable=True) # S3/Blob path for audio/docs
+    
+    status = Column(String(50), default="pending", index=True) # pending, processing, completed, failed
+    processing_log = Column(Text, nullable=True)
+    
+    created_at = Column(DateTime(timezone=True), default=utcnow)
+    updated_at = Column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+
+    user = relationship("User", backref="knowledge_entries")
+    insights = relationship("KnowledgeInsight", back_populates="entry", cascade="all, delete-orphan")
+
+class KnowledgeInsight(Base):
+    """
+    Structured AI-generated results from a KnowledgeEntry.
+    """
+    __tablename__ = "knowledge_insights"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    entry_id = Column(UUID(as_uuid=True), ForeignKey("knowledge_entries.id", ondelete="CASCADE"), index=True)
+    
+    summary = Column(Text, nullable=False)
+    key_points = Column(JSONB, default=list) # List of strings
+    action_items = Column(JSONB, default=list) # List of strings
+    entities = Column(JSONB, default=dict) # Named entities extracted
+    sentiment = Column(String(50), nullable=True)
+    
+    created_at = Column(DateTime(timezone=True), default=utcnow)
+
+    entry = relationship("KnowledgeEntry", back_populates="insights")
+
 class Notification(Base):
     __tablename__ = "notifications"
 

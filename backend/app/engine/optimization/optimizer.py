@@ -4,7 +4,7 @@ Implements tiered pruning and summarization to manage context window efficiency.
 """
 import logging
 import math
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 from app.engine.optimization.schema import (
     ContextComponent, TokenBudget, OptimizationReport, OptimizationStrategy
 )

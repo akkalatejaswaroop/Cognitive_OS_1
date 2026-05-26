@@ -1,0 +1,41 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Cognitive OS Automation API",
+    "version": "1.2.0"
+  },
+  "paths": {
+    "/api/v1/automation/trigger/prompt": {
+      "post": {
+        "summary": "AI-Powered Prompt Trigger",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "prompt": { "type": "string" }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/automation/resume/{execution_id}": {
+      "post": {
+        "summary": "Resume Failed Workflow"
+      }
+    },
+    "/api/v1/reminders/top": {
+      "get": {
+        "summary": "Get Smart Priority Reminders"
+      }
+    },
+    "/api/v1/email/draft": {
+      "post": {
+        "summary": "AI Email Drafting Engine"
+      }
+    }
+  }
+}

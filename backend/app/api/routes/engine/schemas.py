@@ -53,3 +53,19 @@ class DecisionRequest(BaseModel):
 class TokenAnalysisRequest(BaseModel):
     components: List[Dict[str, Any]] # List of {name, content, priority}
     budget: int = 128000
+
+# Email Drafting Engine
+class EmailDraftingRequest(BaseModel):
+    meeting_notes: str
+    user_intent: str
+    tone: str = "Professional"
+    user_id: str
+    session_id: Optional[str] = "default"
+
+class EmailDraftingResponse(BaseModel):
+    subject: str
+    body: str
+    action_items: List[str]
+    suggested_recipients: List[str]
+    summary: str
+    task_id: str
