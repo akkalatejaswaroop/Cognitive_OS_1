@@ -19,9 +19,12 @@ async function refreshAccessToken() {
       const { auth } = await import('@/utils/firebase/config');
       if (auth?.currentUser) {
         const freshToken = await auth.currentUser.getIdToken(true);
-        const secure = window.location.protocol === 'https:' ? '; Secure' : '';
-        document.cookie = `access_token=Bearer ${freshToken}; path=/; max-age=3600; SameSite=Lax${secure}`;
-        return true;
+        const res = await fetch(`${apiBaseUrl}/api/v1/auth/firebase-sync`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id_token: freshToken })
+        });
+        return res.ok;
       }
     } catch {
       // Firebase not available — fall through to backend refresh

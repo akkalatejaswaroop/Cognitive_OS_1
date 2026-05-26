@@ -49,7 +49,8 @@ async def exponential_backoff(
                 raise
 
             # Full-jitter backoff: sleep = random(0, min(cap, base * 2^attempt))
-            delay = random.uniform(0, min(max_delay_s, base_delay_s * (2 ** attempt)))
+            import secrets
+            delay = secrets.SystemRandom().uniform(0, min(max_delay_s, base_delay_s * (2 ** attempt)))
             logger.warning(
                 f"[Retry:{label}] Attempt {attempt + 1} failed ({exc}). "
                 f"Retrying in {delay:.2f}s…"

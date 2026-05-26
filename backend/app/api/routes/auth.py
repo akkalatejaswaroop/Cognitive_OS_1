@@ -327,8 +327,9 @@ def logout(response: Response, request: Request, db: Session = Depends(get_db)):
                 if current_session:
                     db.delete(current_session)
                 db.commit()
-        except Exception:
-            pass
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).warning(f"Failed to delete session on logout: {e}")
 
     response.delete_cookie("access_token", path="/")
     response.delete_cookie("refresh_token", path="/")

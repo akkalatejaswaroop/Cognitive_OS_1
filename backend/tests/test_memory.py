@@ -12,7 +12,7 @@ class TestChromaStore:
         mock_client.get_or_create_collection.return_value = mock_collection
 
         with patch("app.core.database.chroma_client", mock_client):
-            from app.memory.chroma_store import ChromaStore
+            from app.engine.memory.context.chroma_store import ChromaStore
             store = ChromaStore.__new__(ChromaStore)
             store.collection_name = "test_collection"
             store._collection = mock_collection
@@ -30,7 +30,7 @@ class TestChromaStore:
 
     def test_store_without_chromadb_returns_none(self):
         with patch("app.core.database.chroma_client", None):
-            from app.memory.chroma_store import ChromaStore
+            from app.engine.memory.context.chroma_store import ChromaStore
             store = ChromaStore.__new__(ChromaStore)
             store._collection = None
             result = store.store("content")
@@ -51,7 +51,7 @@ class TestChromaStore:
         assert results[0]["distance"] == 0.1
 
     def test_recall_without_chromadb_returns_empty(self):
-        from app.memory.chroma_store import ChromaStore
+        from app.engine.memory.context.chroma_store import ChromaStore
         store = ChromaStore.__new__(ChromaStore)
         store._collection = None
         assert store.recall("query") == []
@@ -71,7 +71,7 @@ class TestChromaStore:
         assert store.count() == 42
 
     def test_count_without_chromadb_returns_zero(self):
-        from app.memory.chroma_store import ChromaStore
+        from app.engine.memory.context.chroma_store import ChromaStore
         store = ChromaStore.__new__(ChromaStore)
         store._collection = None
         assert store.count() == 0
@@ -84,7 +84,7 @@ class TestEmbedder:
         mock_provider.embed = AsyncMock(return_value=[0.1, 0.2, 0.3])
 
         with patch("app.llm.factory.get_llm_provider", return_value=mock_provider):
-            from app.memory.embedder import Embedder
+            from app.engine.memory.context.embedder import Embedder
             embedder = Embedder()
             embedder._provider = mock_provider
             vec = await embedder.embed("hello world")
@@ -97,7 +97,7 @@ class TestEmbedder:
         mock_provider.embed = AsyncMock(side_effect=RuntimeError("embed failed"))
 
         with patch("app.llm.factory.get_llm_provider", return_value=mock_provider):
-            from app.memory.embedder import Embedder
+            from app.engine.memory.context.embedder import Embedder
             embedder = Embedder()
             embedder._provider = mock_provider
             vec = await embedder.embed("hello world")
@@ -109,7 +109,7 @@ class TestEmbedder:
         mock_provider.embed = AsyncMock(side_effect=lambda t: [len(t) * 0.01] * 4)
 
         with patch("app.llm.factory.get_llm_provider", return_value=mock_provider):
-            from app.memory.embedder import Embedder
+            from app.engine.memory.context.embedder import Embedder
             embedder = Embedder()
             embedder._provider = mock_provider
             results = await embedder.embed_batch(["hello", "world"])

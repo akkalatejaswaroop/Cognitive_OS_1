@@ -326,9 +326,9 @@ class OrchestratorAgent:
 
             # ── Exponential backoff with full jitter ──────────────────────
             if attempt < self._max_retries:
-                import random
+                import secrets
                 cap = min(30.0, self._base_delay * (2 ** attempt))
-                delay = random.uniform(0, cap)
+                delay = secrets.SystemRandom().uniform(0, cap)
                 logger.debug(f"[{self.name.value}] Backoff {delay:.2f}s before retry…")
                 await asyncio.sleep(delay)
 

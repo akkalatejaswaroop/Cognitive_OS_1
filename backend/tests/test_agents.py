@@ -38,7 +38,7 @@ class TestMemoryAgent:
              patch("app.llm.factory.get_llm_provider", return_value=mock_llm), \
              patch("app.core.database.chroma_client", None):  # ChromaDB offline
 
-            from app.agents.memory_agent import MemoryAgent
+            from app.engine.agents.memory_agent import MemoryAgent
             agent = MemoryAgent()
             result = await agent.execute("RECALL:Python best practices", task_id="test-1")
             assert isinstance(result, str)
@@ -50,7 +50,7 @@ class TestMemoryAgent:
              patch("app.llm.factory.get_llm_provider", return_value=mock_llm), \
              patch("app.core.database.chroma_client", None):
 
-            from app.agents.memory_agent import MemoryAgent
+            from app.engine.agents.memory_agent import MemoryAgent
             agent = MemoryAgent()
             result = await agent.execute("STORE:User prefers Python", task_id="test-2")
             assert "unavailable" in result.lower() or "stored" in result.lower()
@@ -71,7 +71,7 @@ class TestPlanningAgent:
              patch("app.orchestration.bus.event_bus.publish", new_callable=AsyncMock), \
              patch("app.llm.factory.get_llm_provider", return_value=mock_llm):
 
-            from app.agents.planning_agent import PlanningAgent
+            from app.engine.agents.planning_agent import PlanningAgent
             agent = PlanningAgent()
             result = await agent.execute("Build a FastAPI app", task_id="test-plan-1")
 
@@ -88,7 +88,7 @@ class TestPlanningAgent:
              patch("app.orchestration.bus.event_bus.publish", new_callable=AsyncMock), \
              patch("app.llm.factory.get_llm_provider", return_value=mock_llm):
 
-            from app.agents.planning_agent import PlanningAgent
+            from app.engine.agents.planning_agent import PlanningAgent
             agent = PlanningAgent()
             result = await agent.execute("Do something complex", task_id="test-plan-2")
 
@@ -110,7 +110,7 @@ class TestResearchAgent:
              patch("app.orchestration.bus.event_bus.publish", new_callable=AsyncMock), \
              patch("app.llm.factory.get_llm_provider", return_value=mock_llm):
 
-            from app.agents.research import ResearchAgent
+            from app.engine.agents.research import ResearchAgent
             agent = ResearchAgent()
             result = await agent.execute("Explain async Python", task_id="test-res-1")
             assert "research" in result.lower() or "findings" in result.lower()
@@ -123,7 +123,7 @@ class TestResearchAgent:
              patch("app.orchestration.bus.event_bus.publish", new_callable=AsyncMock), \
              patch("app.llm.factory.get_llm_provider", return_value=mock_llm):
 
-            from app.agents.research import ResearchAgent
+            from app.engine.agents.research import ResearchAgent
             agent = ResearchAgent()
 
             # Should raise (retry logic will catch, but in test we call execute directly)
@@ -142,7 +142,7 @@ class TestExecutionAgent:
              patch("app.orchestration.bus.event_bus.publish", new_callable=AsyncMock), \
              patch("app.llm.factory.get_llm_provider", return_value=mock_llm):
 
-            from app.agents.execution_agent import ExecutionAgent
+            from app.engine.agents.execution_agent import ExecutionAgent
             agent = ExecutionAgent()
             result = await agent.execute("Write a hello world function", task_id="test-exec-1")
             assert "python" in result.lower() or "def " in result
@@ -155,7 +155,7 @@ class TestExecutionAgent:
              patch("app.tools.registry.tool_registry.invoke", new_callable=AsyncMock,
                    return_value={"results": [], "answer": "test answer"}):
 
-            from app.agents.execution_agent import ExecutionAgent
+            from app.engine.agents.execution_agent import ExecutionAgent
             agent = ExecutionAgent()
             result = await agent.execute(
                 'TOOL:web_search:{"query": "FastAPI docs"}', task_id="test-exec-2"
@@ -174,7 +174,7 @@ class TestSummaryAgent:
              patch("app.orchestration.bus.event_bus.publish", new_callable=AsyncMock), \
              patch("app.llm.factory.get_llm_provider", return_value=mock_llm):
 
-            from app.agents.summary_agent import SummaryAgent
+            from app.engine.agents.summary_agent import SummaryAgent
             agent = SummaryAgent()
             result = await agent.execute("Long content here…", task_id="test-sum-1")
             assert "summary" in result.lower() or "fastapi" in result.lower()
