@@ -180,4 +180,6 @@ async def llm_health():
         models = await provider.list_models()
         return {"status": "reachable", "backend": type(provider).__name__, "models": models}
     except Exception as exc:
-        return {"status": "unreachable", "backend": type(provider).__name__, "error": str(exc)}
+        import logging
+        logging.getLogger(__name__).error(f"LLM health check failed: {exc}")
+        return {"status": "unreachable", "backend": type(provider).__name__, "error": "Internal error occurred while connecting to LLM backend."}
