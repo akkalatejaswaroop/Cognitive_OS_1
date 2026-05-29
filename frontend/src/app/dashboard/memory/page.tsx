@@ -17,6 +17,7 @@ import {
 import { MemoryTimeline, Memory as TimelineMemory } from '@/components/MemoryTimeline';
 import { useAuth } from '@/contexts/AuthContext';
 import { apiClient } from '@/lib/api';
+import KnowledgeCapture from '@/components/KnowledgeCapture';
 
 // --- Types ---
 
@@ -121,6 +122,7 @@ export default function MemoryDashboard() {
   const [activeFilter, setActiveFilter] = useState('all');
   const [isLoading, setIsLoading] = useState(true);
   const [isSearching, setIsSearching] = useState(false);
+  const [isCaptureOpen, setIsCaptureOpen] = useState(false);
 
   const fetchMemories = useCallback(async (query: string = '') => {
     if (!user) return;
@@ -333,7 +335,10 @@ export default function MemoryDashboard() {
                 </AnimatePresence>
                 
                 {/* --- Add New Placeholder --- */}
-                <button className="h-[250px] border-2 border-dashed border-white/5 rounded-2xl flex flex-col items-center justify-center gap-4 text-gray-600 hover:text-gray-400 hover:border-white/20 transition-all group">
+                <button 
+                  onClick={() => setIsCaptureOpen(true)}
+                  className="h-[250px] border-2 border-dashed border-white/5 rounded-2xl flex flex-col items-center justify-center gap-4 text-gray-600 hover:text-gray-400 hover:border-white/20 transition-all group"
+                >
                   <div className="p-4 rounded-full bg-white/5 group-hover:scale-110 transition-transform">
                     <Zap size={24} />
                   </div>
@@ -356,6 +361,44 @@ export default function MemoryDashboard() {
 
         </div>
       </div>
+
+      {/* --- Ingestion Modal --- */}
+      <AnimatePresence>
+        {isCaptureOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            {/* Backdrop */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => {
+                setIsCaptureOpen(false);
+                fetchMemories();
+              }}
+              className="absolute inset-0 bg-black/60 backdrop-blur-md"
+            />
+            {/* Content Container */}
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="relative w-full max-w-2xl max-h-[90vh] overflow-y-auto bg-[#141210]/95 border border-white/10 rounded-3xl p-6 shadow-2xl z-10"
+            >
+              {/* Close Button */}
+              <button
+                onClick={() => {
+                  setIsCaptureOpen(false);
+                  fetchMemories();
+                }}
+                className="absolute top-6 right-6 p-2 rounded-full hover:bg-white/5 text-gray-400 hover:text-white transition-colors"
+              >
+                ✕
+              </button>
+              <KnowledgeCapture />
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

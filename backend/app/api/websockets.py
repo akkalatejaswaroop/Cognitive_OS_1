@@ -3,7 +3,7 @@ from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Depends, status
 from app.api.deps import get_user_from_token
 from app.core.database import get_db
 from sqlalchemy.orm import Session
-from app.orchestration.bus import event_bus
+from app.orchestration.bus import event_bus, AgentMessage
 import logging
 
 logger = logging.getLogger(__name__)
@@ -39,7 +39,8 @@ class ConnectionManager:
 manager = ConnectionManager()
 
 # Global subscriber to forward events to websockets
-async def handle_task_status(payload: dict):
+async def handle_task_status(msg: AgentMessage):
+    payload = msg.payload
     task_id = payload.get("task_id")
     if task_id:
         await manager.send_message(task_id, payload)

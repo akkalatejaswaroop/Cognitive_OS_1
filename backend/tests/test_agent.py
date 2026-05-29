@@ -48,8 +48,8 @@ def test_execute_agent_task_success(client):
 @pytest.mark.asyncio
 async def test_supervisor_swarm_delegation():
     # Instantiate agents directly to test orchestration logic in isolation
-    from app.agents.supervisor import SupervisorAgent
-    from app.agents.coder import CoderAgent
+    from app.engine.agents.supervisor import SupervisorAgent
+    from app.engine.agents.coder import CoderAgent
     from app.orchestration.bus import event_bus
     
     # Ensure event bus is running

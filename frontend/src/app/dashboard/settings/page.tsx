@@ -364,7 +364,7 @@ export default function SettingsPage() {
                           <div className="h-12 w-12 rounded-full overflow-hidden border border-border/80 bg-background flex items-center justify-center flex-shrink-0">
                             {customAvatarInput ? (
                               <img
-                                src={sanitizeUrl(customAvatarInput)}
+                                src={sanitizeUrl(customAvatarInput) || null}
                                 alt="Custom preview"
                                 className="w-full h-full object-cover"
                                 onError={(e) => {
@@ -645,7 +645,7 @@ export default function SettingsPage() {
                 <div className="relative">
                   <div className="h-24 w-24 rounded-full overflow-hidden border-2 border-primary/20 bg-background flex items-center justify-center shadow-md">
                     <img
-                      src={sanitizeUrl(isCustomAvatar ? (customAvatarInput || AVATAR_PRESETS[0].url) : avatarUrl)}
+                      src={sanitizeUrl(isCustomAvatar ? (customAvatarInput || AVATAR_PRESETS[0].url) : avatarUrl) || null}
                       alt={displayName}
                       className="w-full h-full object-cover"
                       onError={(e) => {

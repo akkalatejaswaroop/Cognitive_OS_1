@@ -6,12 +6,25 @@ logger = logging.getLogger(__name__)
 
 class MemoryService:
     def __init__(self, collection_name: str = "cognitive_memory"):
+        # Gracefully handle database session being passed as positional argument
+        if not isinstance(collection_name, str):
+            collection_name = "cognitive_memory"
         self.collection_name = collection_name
         if chroma_client:
             self.collection = chroma_client.get_or_create_collection(name=collection_name)
         else:
             self.collection = None
             logger.warning("ChromaDB client not initialized. MemoryService will be inactive.")
+
+    async def create_memory(self, user_id, content: str, memory_type: str = "episodic", importance_score: float = 0.5):
+        """Creates a semantic memory with tenant-isolated metadata parameters."""
+        metadata = {
+            "user_id": str(user_id),
+            "memory_type": memory_type,
+            "importance_score": importance_score,
+            "source": "sensory_capture"
+        }
+        return self.store_memory(content=content, metadata=metadata)
 
     def store_memory(self, content: str, metadata: dict = None):
         if not self.collection:

@@ -67,14 +67,16 @@ async def test_workflow_resume_logic(db_session: Session, mock_user):
     # 3. Initialize Executor and run Resume
     executor = EnhancedWorkflowExecutor(execution.id)
     
+    from unittest.mock import AsyncMock
     # We mock _dispatch_to_agent to avoid actual LLM calls
-    executor._dispatch_to_agent = asyncio.CoroutineMock(return_value="Success 2")
+    executor._dispatch_to_agent = AsyncMock(return_value="Success 2")
     
     await executor.run()
 
     # 4. Assertions
     # Re-fetch from DB
     updated_exec = db_session.query(WorkflowHistory).get(execution.id)
+    db_session.refresh(updated_exec)
     assert updated_exec.status == "completed"
     
     # Ensure step_1 was NOT re-dispatched

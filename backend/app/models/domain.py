@@ -270,3 +270,161 @@ class ActivityLog(Base):
     created_at = Column(DateTime(timezone=True), default=utcnow)
 
     user = relationship("User", back_populates="activity_logs")
+
+class Goal(Base):
+    """
+    Goal Tracking Engine:
+    Tracks high-level productivity targets, deadline compliance, and key results.
+    """
+    __tablename__ = "goals"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    title = Column(String(255), nullable=False)
+    description = Column(Text, nullable=True)
+    target_date = Column(DateTime(timezone=True), nullable=False)
+    
+    status = Column(String(50), default="active", index=True) # active, completed, delayed, abandoned
+    completion_percentage = Column(Float, default=0.0, nullable=False)
+    key_results = Column(JSONB, default=dict, nullable=False)
+    
+    # Extended Goal Tracking attributes
+    goal_type = Column(String(50), default="short_term", nullable=False)
+    parent_goal_id = Column(UUID(as_uuid=True), ForeignKey("goals.id", ondelete="SET NULL"), nullable=True)
+    projected_completion_date = Column(DateTime(timezone=True), nullable=True)
+    
+    created_at = Column(DateTime(timezone=True), default=utcnow)
+    updated_at = Column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+
+    user = relationship("User", backref="goals")
+    parent = relationship("Goal", remote_side=[id], backref="sub_goals")
+
+class FocusSession(Base):
+    """
+    Focus Time Analysis:
+    Tracks Focus timer cycles, interruptions, and context-switching metrics.
+    """
+    __tablename__ = "focus_sessions"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    goal_id = Column(UUID(as_uuid=True), ForeignKey("goals.id", ondelete="SET NULL"), nullable=True)
+    
+    started_at = Column(DateTime(timezone=True), default=utcnow, nullable=False)
+    ended_at = Column(DateTime(timezone=True), nullable=True)
+    
+    duration_seconds = Column(Integer, default=0)
+    interruption_count = Column(Integer, default=0)
+    context_switch_count = Column(Integer, default=0)
+    flow_state_score = Column(Float, default=1.0)
+    
+    created_at = Column(DateTime(timezone=True), default=utcnow)
+
+    user = relationship("User", backref="focus_sessions")
+    goal = relationship("Goal", backref="focus_sessions")
+
+class TaskHistory(Base):
+    """
+    Task Ingestion & State Transitions:
+    Tracks tasks completion rates, estimations, and actual durations.
+    """
+    __tablename__ = "task_history"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    goal_id = Column(UUID(as_uuid=True), ForeignKey("goals.id", ondelete="SET NULL"), nullable=True)
+    
+    title = Column(String(255), nullable=False)
+    status = Column(String(50), default="pending", index=True) # pending, in_progress, completed, failed
+    estimated_duration_minutes = Column(Integer, nullable=True)
+    actual_duration_minutes = Column(Integer, nullable=True)
+    
+    completed_at = Column(DateTime(timezone=True), nullable=True)
+    created_at = Column(DateTime(timezone=True), default=utcnow)
+    updated_at = Column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+
+    user = relationship("User", backref="task_histories")
+    goal = relationship("Goal", backref="task_histories")
+
+class ProductivityLog(Base):
+    """
+    Productivity Logs / Real-time Telemetry:
+    Raw active app switches and typing intervals determining fatigue indexes.
+    """
+    __tablename__ = "productivity_logs"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    focus_session_id = Column(UUID(as_uuid=True), ForeignKey("focus_sessions.id", ondelete="SET NULL"), nullable=True)
+    
+    timestamp = Column(DateTime(timezone=True), default=utcnow, index=True)
+    active_application = Column(String(255), nullable=False)
+    window_title = Column(String(500), nullable=True)
+    
+    keystroke_count = Column(Integer, default=0, nullable=False)
+    keystroke_average_gap_ms = Column(Float, default=0.0, nullable=False)
+    mouse_scroll_pixels = Column(Integer, default=0, nullable=False)
+    app_switch_count = Column(Integer, default=0, nullable=False)
+    
+    is_distracting = Column(Boolean, default=False, nullable=False)
+    fatigue_index = Column(Float, default=0.0, nullable=False)
+    
+    created_at = Column(DateTime(timezone=True), default=utcnow)
+
+    @property
+    def keystroke_jitter(self) -> float:
+        if self.keystroke_count > 10:
+            jitter = abs(self.keystroke_average_gap_ms - 200.0) / 200.0
+            return min(1.0, max(0.0, jitter))
+        return 0.0
+
+    @property
+    def distraction_ratio(self) -> float:
+        return 1.0 if self.is_distracting else 0.0
+
+    user = relationship("User", backref="productivity_logs")
+    focus_session = relationship("FocusSession", backref="productivity_logs")
+
+class AIRecommendation(Base):
+    """
+    AI Productivity Recommendations:
+    Actionable insights generated by agentic analyses of raw events.
+    """
+    __tablename__ = "ai_recommendations"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    
+    title = Column(String(255), nullable=False)
+    category = Column(String(100), nullable=False) # focus, pacing, delegation, goal_restructure
+    description = Column(Text, nullable=False)
+    
+    priority_score = Column(Float, default=0.5)
+    is_actionable = Column(Boolean, default=True)
+    action_payload = Column(JSONB, default=dict, nullable=True)
+    status = Column(String(50), default="pending", index=True) # pending, dismissed, executed
+    
+    created_at = Column(DateTime(timezone=True), default=utcnow)
+
+    user = relationship("User", backref="ai_recommendations")
+
+class AnalyticsReport(Base):
+    """
+    Daily / Weekly Reports:
+    Aggregated files mapping productivity performance summaries.
+    """
+    __tablename__ = "analytics_reports"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    
+    report_type = Column(String(50), nullable=False) # daily, weekly
+    start_date = Column(DateTime(timezone=True), nullable=False)
+    end_date = Column(DateTime(timezone=True), nullable=False)
+    
+    markdown_content = Column(Text, nullable=False)
+    metrics_summary = Column(JSONB, nullable=False)
+    
+    created_at = Column(DateTime(timezone=True), default=utcnow)
+
+    user = relationship("User", backref="analytics_reports")

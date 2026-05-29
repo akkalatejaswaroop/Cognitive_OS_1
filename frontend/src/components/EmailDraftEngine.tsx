@@ -60,7 +60,7 @@ const EmailDraftEngine: React.FC = () => {
               placeholder="Paste meeting transcript or notes here..."
               className="h-32"
               value={meetingNotes}
-              onChange={(e) => setMeetingNotes(e.target.value)}
+              onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setMeetingNotes(e.target.value)}
             />
           </div>
           <div className="grid grid-cols-2 gap-4">
@@ -69,7 +69,7 @@ const EmailDraftEngine: React.FC = () => {
               <Input 
                 placeholder="e.g. Follow up on the project alpha launch"
                 value={intent}
-                onChange={(e) => setIntent(e.target.value)}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setIntent(e.target.value)}
               />
             </div>
             <div>

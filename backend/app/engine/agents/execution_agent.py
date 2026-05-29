@@ -12,7 +12,7 @@ from typing import Any, Callable, Awaitable
 
 from app.engine.agents.base import BaseAgent
 from app.llm.factory import get_llm_provider
-from app.engine.prompts.email import EMAIL_DRAFTING_SYSTEM_PROMPT, EMAIL_DRAFTING_USER_PROMPT
+from app.prompts.email import EMAIL_DRAFTING_SYSTEM_PROMPT, EMAIL_DRAFTING_USER_PROMPT
 from app.engine.prompts.builder import extract_xml_tag
 
 logger = logging.getLogger(__name__)

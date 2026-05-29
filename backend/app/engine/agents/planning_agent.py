@@ -94,7 +94,20 @@ class PlanningAgent(BaseAgent):
         
         plan = await self.generate_plan(raw_task)
         if plan is None:
-            return TaskGraph(task_id=tid, subtasks=[]).model_dump_json()
+            # Fallback to single research subtask
+            return TaskGraph(
+                task_id=tid,
+                subtasks=[
+                    SubTask(
+                        sub_task_id=f"{tid}-1",
+                        parent_task_id=tid,
+                        agent="research-agent",
+                        description=f"Research and planning fallback for: {raw_task}",
+                        depends_on=[],
+                        status="pending"
+                    )
+                ]
+            ).model_dump_json()
 
         # Convert WorkflowPlan (OpenAI schema) to TaskGraph (OS canonical schema)
         subtasks = []

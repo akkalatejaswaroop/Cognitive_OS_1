@@ -69,6 +69,7 @@ async def lifespan(fastapi_app: FastAPI):
     from app.engine.agents.research import ResearchAgent
     from app.engine.agents.execution_agent import ExecutionAgent
     from app.engine.agents.summary_agent import SummaryAgent
+    from app.engine.agents.analytics_agent import AnalyticsAgent
     # Keep CoderAgent for backward compat (legacy topic: agent.coder-agent)
     from app.engine.agents.coder import CoderAgent
 
@@ -81,6 +82,7 @@ async def lifespan(fastapi_app: FastAPI):
         ResearchAgent(),
         ExecutionAgent(),
         SummaryAgent(),
+        AnalyticsAgent(),
         CoderAgent(),           # legacy — topic: agent.coder-agent
     ]
 

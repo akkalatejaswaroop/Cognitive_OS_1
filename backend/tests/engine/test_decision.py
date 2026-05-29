@@ -22,8 +22,10 @@ async def test_decision_engine_prioritization():
 async def test_decision_engine_fallback():
     engine = DecisionEngine()
     
-    # Test with empty context to check fallback behavior
-    decision = await engine.evaluate("", "", {})
+    # Force the LLM generate call to throw an exception to test the fallback path safely
+    from unittest.mock import AsyncMock, patch
+    with patch.object(engine._llm, "generate", new_callable=AsyncMock, side_effect=Exception("LLM failure")):
+        decision = await engine.evaluate("", "", {})
     
     assert decision.selected_action.action_id == "fallback"
     assert decision.context_confidence == 0.0
